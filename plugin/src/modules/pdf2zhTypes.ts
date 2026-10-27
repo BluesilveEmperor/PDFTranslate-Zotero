@@ -1,14 +1,7 @@
-export enum PDFType {
-    MONO = "mono",
-    DUAL = "dual",
-    MONO_CUT = "mono-cut",
-    DUAL_CUT = "dual-cut",
-    CROP_COMPARE = "crop-compare",
-    COMPARE = "compare",
-    ORIGIN_CUT = "origin-cut",
-    ORIGIN = "origin",
-    UNKNOWN = "unknown",
-}
+// PDFType 的常量定义放在 utils/pdfFileName.ts：文件名判定函数需要与类型
+// 常量处于同一个零依赖模块，才能被 node:test 直接加载（Node 的类型剥离
+// 不支持 enum）。此处重导出，保持既有 import 路径不变。
+export { PDFType } from "../utils/pdfFileName";
 
 export interface ServerConfig {
     serverUrl: string;

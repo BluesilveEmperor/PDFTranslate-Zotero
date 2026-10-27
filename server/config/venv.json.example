@@ -3,7 +3,7 @@
         "conda": {
             "python_version": "3.12",
             "packages": [
-                "pdf2zh==1.9.11",
+                "pdf2zh @ git+https://gh-proxy.com/https://github.com/BluesilveEmperor/PDFtranslate.git@main",
                 "pypdf",
                 "PyMuPDF",
                 "flask",
@@ -16,7 +16,7 @@
         "uv": {
             "python_version": "3.12",
             "packages": [
-                "pdf2zh==1.9.11",
+                "pdf2zh @ git+https://gh-proxy.com/https://github.com/BluesilveEmperor/PDFtranslate.git@main",
                 "pypdf",
                 "PyMuPDF",
                 "flask",

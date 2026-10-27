@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Iterable
 
+from utils.app_paths import cache_dir
 from utils.package_network import print_probe_report
 from utils.package_network import probe_indexes
 from utils.package_network import usable_indexes
@@ -37,26 +38,69 @@ def _configure_windows_console_output() -> None:
 
 _configure_windows_console_output()
 
+# Server 源码所在目录（不随 PDF2ZH_HOME 变化），用于定位 server.py 与托管环境。
 SERVER_ROOT = Path(__file__).resolve().parent.parent
+# 模板保持原位：只作为「用户尚未配置 venv.json」时的默认来源。
 DEFAULT_VENV_CONFIG = SERVER_ROOT / "config" / "venv.json.example"
 
 ENGINE_ENV_NAMES = {
     "pdf2zh": "zotero-pdf2zh-venv",
     "pdf2zh_next": "zotero-pdf2zh-next-venv",
 }
+# 仅用于探测下载源是否可达（要求 PyPI 上存在同名发行版），不参与版本解析，
+# 也不决定安装规格；pdf2zh 的安装源始终由 venv.json / 环境变量决定，因此不会
+# 被这里的 PyPI 包名覆盖回上游。
 PRIMARY_PACKAGES = {
     "pdf2zh": "pdf2zh",
     "pdf2zh_next": "pdf2zh-next",
 }
+# 读取已安装发行版的元数据。fork 与 PyPI 的发行版名都是 pdf2zh，所以
+# read_versions / 健康探测对 git 安装同样有效（版本号来自 fork 的 pyproject）。
 VERSION_PACKAGES = {
     "pdf2zh": ["pdf2zh", "BabelDOC", "PyMuPDF", "pypdf"],
     "pdf2zh_next": ["pdf2zh-next", "BabelDOC", "PyMuPDF", "pypdf"],
+}
+# 每个引擎对应的 CLI / 模块名，避免重复写 engine 二选一表达式。
+CLI_MODULES = {
+    "pdf2zh": "pdf2zh",
+    "pdf2zh_next": "pdf2zh_next",
 }
 THINKING_FLAGS = (
     "--deepseek-thinking-mode",
     "--deepseek-reasoning-effort",
 )
 MIN_PDF2ZH_NEXT = (2, 9, 0)
+
+# pdf2zh（PDFMathTranslate 1.x）从用户 fork 安装，因此托管依赖使用 PEP 508
+# direct reference；pdf2zh_next 属于另一个上游项目，继续从 PyPI 安装。
+# 直连 GitHub 时 pip/uv 还需要递归克隆 fork 的 git 子模块，实测容易卡住，
+# 因此默认通过 gh-proxy 反向代理加速（主仓库与子模块都走代理）。
+PDF2ZH_FORK_DIRECT_URL = "https://github.com/BluesilveEmperor/PDFtranslate.git"
+PDF2ZH_PROXY_PREFIX = "https://gh-proxy.com/"
+PDF2ZH_FORK_URL = PDF2ZH_PROXY_PREFIX + PDF2ZH_FORK_DIRECT_URL
+PDF2ZH_FORK_REVISION = "main"
+PDF2ZH_FORK_SPEC = f"pdf2zh @ git+{PDF2ZH_FORK_URL}@{PDF2ZH_FORK_REVISION}"
+# 直连 fork 的等价规格，供用户无法使用代理时回退（通过环境变量指定）。
+PDF2ZH_FORK_DIRECT_SPEC = (
+    f"pdf2zh @ git+{PDF2ZH_FORK_DIRECT_URL}@{PDF2ZH_FORK_REVISION}"
+)
+# 子模块在 .gitmodules 中写的是 https://github.com/...，无法改文件，只能用
+# git 的 url.<base>.insteadOf 在子进程环境里统一改写。
+PDF2ZH_GITHUB_PREFIX = "https://github.com/"
+PDF2ZH_GIT_PROXY_KEY = (
+    f"url.{PDF2ZH_PROXY_PREFIX}{PDF2ZH_GITHUB_PREFIX}.insteadOf"
+)
+# 回退到 PyPI 上游时建议使用的版本（与 fork 的 pyproject.toml 保持一致）。
+PDF2ZH_PYPI_FALLBACK_SPEC = "pdf2zh==1.9.12"
+# 临时覆盖 pdf2zh 安装规格的环境变量。运行期 venv.json 的托管项会被模板自动
+# 迁移，因此「长期回退到直连 / PyPI」需要通过该变量表达，而不是只改配置文件。
+PDF2ZH_SPEC_ENV = "PDF2ZH_PDF2ZH_SPEC"
+
+# 实测（gh-proxy，主仓库约 132 MB + 子模块约 65 MB）：首次 dry-run 预检约
+# 795s；正式安装还要再次克隆并构建依赖。这里给出有限但足够的超时，不做无
+# 上限等待，失败时仍会进入中文回退提示。
+PDF2ZH_GIT_PREFLIGHT_TIMEOUT = 900
+PDF2ZH_GIT_INSTALL_TIMEOUT = 1800
 
 
 def managed_python_env(
@@ -77,6 +121,167 @@ def managed_python_env(
             env.pop(key, None)
     env["PYTHONNOUSERSITE"] = "1"
     return env
+
+
+def requirement_package_name(requirement: str) -> str:
+    """Return the normalized project name of a PEP 508 requirement.
+
+    Works for both version pins (``pdf2zh==1.9.12``) and direct references
+    (``pdf2zh @ git+https://...``), so managed-package bookkeeping keeps
+    working when a package is installed from git.
+    """
+    raw = str(requirement).strip()
+    name = re.split(r"[<>=!~\[\s;@]", raw, maxsplit=1)[0]
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def is_direct_reference(requirement: str) -> bool:
+    """Return True for PEP 508 direct references such as ``pkg @ git+https://``."""
+    raw = str(requirement)
+    return "@" in raw and "://" in raw
+
+
+# 只匹配「scheme://userinfo@」；userinfo 不含 /，不会误伤 URL 末尾的
+# @main 等 revision 后缀。
+_URL_CREDENTIALS_RE = re.compile(
+    r"(?P<scheme>[a-zA-Z][a-zA-Z0-9+.-]*://)(?P<userinfo>[^/@\s]+)@"
+)
+
+
+def _redact_requirement(text: str) -> str:
+    """Hide credentials embedded in a requirement URL before printing it.
+
+    ``https://user:token@host/repo.git`` becomes ``https://***@host/repo.git``.
+    The scheme and host are kept so the printed source is still identifiable;
+    ``@main`` revision suffixes are untouched because userinfo never contains
+    ``/``.
+    """
+    return _URL_CREDENTIALS_RE.sub(r"\g<scheme>***@", str(text))
+
+
+def is_pdf2zh_proxy_requirement(requirement: str) -> bool:
+    """Return True when pdf2zh is installed through the gh-proxy mirror."""
+    return (
+        requirement_package_name(requirement) == "pdf2zh"
+        and PDF2ZH_PROXY_PREFIX in str(requirement)
+    )
+
+
+def is_pdf2zh_fork_requirement(requirement: str) -> bool:
+    """Return True when the requirement installs pdf2zh from the fork repository.
+
+    Both the proxy URL and the direct GitHub URL count as the fork source; the
+    helper is used for source reporting, while :func:`is_pdf2zh_proxy_requirement`
+    decides whether the git proxy environment should be injected.
+    """
+    if requirement_package_name(requirement) != "pdf2zh":
+        return False
+    raw = str(requirement)
+    return PDF2ZH_FORK_DIRECT_URL in raw or PDF2ZH_PROXY_PREFIX in raw
+
+
+def _is_git_config_entry(key: str) -> bool:
+    """Return True for ``GIT_CONFIG_KEY_n`` / ``GIT_CONFIG_VALUE_n`` variables."""
+    return key.startswith("GIT_CONFIG_KEY_") or key.startswith(
+        "GIT_CONFIG_VALUE_"
+    )
+
+
+def _pdf2zh_git_proxy_env(
+    requirements: Iterable[str],
+    source: Mapping[str, str] | None = None,
+) -> dict[str, str] | None:
+    """Return an env that rewrites github.com git URLs to the gh-proxy mirror.
+
+    pip/uv always run ``git submodule update --init --recursive`` for a git
+    requirement. The fork's ``.gitmodules`` points at a plain
+    ``https://github.com/...`` URL, so installing through the proxy spec alone
+    would still clone the submodule directly. ``url.<base>.insteadOf`` in the
+    subprocess environment makes both the main repository and the submodule
+    go through the proxy without touching the fork's files.
+
+    Returns ``None`` (no injection) unless one of the requirements is the
+    proxy-based pdf2zh fork spec, so direct/PyPI fallbacks stay untouched.
+
+    Existing ``GIT_CONFIG_*`` settings always win: an unparsable or incomplete
+    ``GIT_CONFIG_COUNT`` would make a rewrite drop the user's git configuration,
+    so in that case we warn and skip the injection instead of touching it.
+    """
+    requirement_list = list(requirements)
+    if not any(is_pdf2zh_proxy_requirement(item) for item in requirement_list):
+        return None
+    env = dict(os.environ if source is None else source)
+    raw_count = str(env.get("GIT_CONFIG_COUNT") or "").strip()
+    if not raw_count:
+        if any(_is_git_config_entry(key) for key in env):
+            print(
+                "⚠️ 检测到未声明 GIT_CONFIG_COUNT 的 git 配置；"
+                "为保留用户配置，跳过 gh-proxy 的 insteadOf 注入。"
+            )
+            return None
+        count = 0
+    else:
+        try:
+            count = int(raw_count)
+        except ValueError:
+            print(
+                f"⚠️ GIT_CONFIG_COUNT={raw_count!r} 不是合法整数；"
+                "为保留用户 git 配置，跳过 gh-proxy 的 insteadOf 注入。"
+            )
+            return None
+        if count < 0 or any(
+            f"GIT_CONFIG_KEY_{index}" not in env for index in range(count)
+        ):
+            print(
+                "⚠️ 现有 GIT_CONFIG_* 条目与 GIT_CONFIG_COUNT 不一致；"
+                "为保留用户 git 配置，跳过 gh-proxy 的 insteadOf 注入。"
+            )
+            return None
+    # 用户/启动器可能已配置其他 GIT_CONFIG_*；已存在同名 insteadOf
+    # 就不重复追加。
+    for index in range(count):
+        if env.get(f"GIT_CONFIG_KEY_{index}") == PDF2ZH_GIT_PROXY_KEY:
+            return env
+    env["GIT_CONFIG_COUNT"] = str(count + 1)
+    env[f"GIT_CONFIG_KEY_{count}"] = PDF2ZH_GIT_PROXY_KEY
+    env[f"GIT_CONFIG_VALUE_{count}"] = PDF2ZH_GITHUB_PREFIX
+    return env
+
+
+def _apply_pdf2zh_spec_override(packages: list[str]) -> list[str]:
+    """Replace the managed pdf2zh requirement with ``PDF2ZH_PDF2ZH_SPEC``.
+
+    Runtime ``venv.json`` managed entries are rewritten from the shipped
+    template on every start, so editing the file alone cannot permanently pin
+    pdf2zh back to a direct GitHub URL or PyPI. An environment variable is read
+    here, after config loading, and therefore always wins over the migrated
+    file content.
+    """
+    override = str(os.environ.get(PDF2ZH_SPEC_ENV) or "").strip()
+    if not override:
+        return packages
+    if requirement_package_name(override) != "pdf2zh":
+        print(
+            f"⚠️ {PDF2ZH_SPEC_ENV} 不是 pdf2zh 依赖项，已忽略: "
+            f"{_redact_requirement(override)}"
+        )
+        return packages
+    print(
+        f"ℹ️ 使用 {PDF2ZH_SPEC_ENV} 覆盖 pdf2zh 安装规格: "
+        f"{_redact_requirement(override)}"
+    )
+    replaced = False
+    result: list[str] = []
+    for item in packages:
+        if requirement_package_name(item) == "pdf2zh":
+            if not replaced:
+                result.append(override)
+                replaced = True
+            continue
+        result.append(item)
+    if not replaced:
+        result.insert(0, override)
+    return result
 
 
 def _version_tuple(value: str | None) -> tuple[int, ...]:
@@ -169,9 +374,19 @@ def _bin_dir(env_dir: Path) -> Path:
     return env_dir / ("Scripts" if platform.system() == "Windows" else "bin")
 
 
+def runtime_venv_config_path() -> Path:
+    """运行期 venv.json 路径：``<程序根>/config/pdf-cache/venv.json``。
+
+    旧版该文件位于 ``server/config``；模板 ``venv.json.example`` 仍留在
+    ``server/config``，仅作为用户尚未生成配置时的默认来源。
+    """
+    return cache_dir() / "venv.json"
+
+
 def load_environment_config(config_path: str | os.PathLike[str] | None = None) -> dict:
-    path = Path(config_path) if config_path else DEFAULT_VENV_CONFIG
+    path = Path(config_path) if config_path else runtime_venv_config_path()
     if not path.exists():
+        # 用户尚未生成 venv.json（或旧版未迁移）时回退到随包模板
         path = DEFAULT_VENV_CONFIG
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -184,10 +399,46 @@ def load_requirements(
 ) -> tuple[str, list[str]]:
     config = load_environment_config(config_path)
     engine_config = config.get(engine, {}).get(env_tool, {})
+    packages = list(engine_config.get("packages", []))
+    if engine == "pdf2zh":
+        # 允许通过环境变量临时切换回 PyPI，且不会被配置迁移覆盖。
+        packages = _apply_pdf2zh_spec_override(packages)
     return (
         str(engine_config.get("python_version", "3.12")),
-        list(engine_config.get("packages", [])),
+        packages,
     )
+
+
+def describe_pdf2zh_source(
+    env_tool: str = "uv",
+    config_path: str | os.PathLike[str] | None = None,
+) -> str:
+    """Describe where the managed pdf2zh requirement currently comes from.
+
+    Used by ``manage_packages.py`` / ``update_packages.py`` so users do not
+    mistake a fork install for "nothing was updated" when the PyPI version
+    number did not change.
+    """
+    tool = env_tool if env_tool in {"uv", "conda"} else "uv"
+    try:
+        _, packages = load_requirements("pdf2zh", tool, config_path)
+    except Exception as exc:
+        return f"未知（读取 venv.json 失败: {exc}）"
+    spec = next(
+        (item for item in packages if requirement_package_name(item) == "pdf2zh"),
+        None,
+    )
+    if spec is None:
+        return "未声明 pdf2zh 依赖"
+    if is_pdf2zh_proxy_requirement(spec):
+        source = f"{PDF2ZH_FORK_URL}@{PDF2ZH_FORK_REVISION}"
+        return f"fork 源（gh-proxy 代理）{_redact_requirement(source)}"
+    if is_pdf2zh_fork_requirement(spec):
+        source = f"{PDF2ZH_FORK_DIRECT_URL}@{PDF2ZH_FORK_REVISION}"
+        return f"fork 源（直连）{_redact_requirement(source)}"
+    if is_direct_reference(spec):
+        return f"自定义 direct reference（{_redact_requirement(spec)}）"
+    return f"PyPI（{_redact_requirement(spec)}）"
 
 
 def _conda_info() -> dict | None:
@@ -395,6 +646,16 @@ def _package_manager_env() -> dict[str, str]:
     return env
 
 
+def _install_subprocess_env(requirements: Iterable[str]) -> dict[str, str]:
+    """Environment for pip/uv install subprocesses.
+
+    pdf2zh 走 gh-proxy 代理源时，额外注入 git ``insteadOf``，让主仓库与
+    ``.gitmodules`` 里的子模块都经过代理；回退到直连 / PyPI 时保持原样。
+    """
+    base = _package_manager_env()
+    return _pdf2zh_git_proxy_env(requirements, base) or base
+
+
 def _pip_supports_dry_run(python_path: Path) -> bool:
     try:
         result = subprocess.run(
@@ -454,14 +715,21 @@ def _resolver_preflight(
     )
     if command is None:
         return env_tool == "conda"
+    # 含 git 等 direct reference 时解析器需要先克隆仓库（pdf2zh fork 还要递归
+    # 克隆子模块，实测约 13 分钟），给足一次性预检超时；非 git 依赖保持原值。
+    timeout = (
+        PDF2ZH_GIT_PREFLIGHT_TIMEOUT
+        if any(is_direct_reference(item) for item in requirements)
+        else 180
+    )
     try:
         result = subprocess.run(
             command,
             cwd=SERVER_ROOT,
             capture_output=True,
             text=True,
-            env=_package_manager_env(),
-            timeout=180,
+            env=_install_subprocess_env(requirements),
+            timeout=timeout,
         )
         return result.returncode == 0
     except Exception:
@@ -483,9 +751,19 @@ def choose_install_sources(
     )
     print_probe_report(results)
     sources: list[str] = []
+    git_source = any(is_direct_reference(item) for item in requirements)
+    # git 源每次预检都要重新克隆仓库（pip 不缓存 VCS 克隆），因此只保留前
+    # 2 个通过预检的源：既能控制耗时，又能在首源正式安装失败时回退。
+    max_sources = 2 if git_source else None
     for result in usable_indexes(results):
         if _resolver_preflight(env_tool, python_path, requirements, result.url):
             sources.append(result.url)
+            if max_sources is not None and len(sources) >= max_sources:
+                print(
+                    f"ℹ️ git 源解析成本较高，已保留前 {max_sources} 个"
+                    "通过预检的下载源用于回退。"
+                )
+                break
     return sources
 
 
@@ -580,6 +858,68 @@ def _ensure_canonical_environment(
     return _create_conda_environment(env_name, python_version)
 
 
+def _report_pdf2zh_fork_install_hint(
+    engine: str,
+    requirements: Iterable[str] = (),
+) -> None:
+    """Explain how to recover when the fork (git) install fails.
+
+    pdf2zh 现在通过 PEP 508 direct reference 从 fork 仓库安装，这比 PyPI 版本
+    多出「本机可用 git + 能访问 GitHub」两项前提；默认还通过 gh-proxy 代理
+    主仓库与子模块。失败时给出中文回退方案，避免用户误以为只能放弃更新。
+    只在 fork 源（代理或直连）场景打印，回退到 PyPI 时不打印。
+    """
+    if engine != "pdf2zh":
+        return
+    requirement_list = list(requirements)
+    fork_specs = [
+        item for item in requirement_list if is_pdf2zh_fork_requirement(item)
+    ]
+    if requirement_list and not fork_specs:
+        return
+    uses_proxy = (
+        any(is_pdf2zh_proxy_requirement(item) for item in fork_specs)
+        if fork_specs
+        else True
+    )
+    current_spec = fork_specs[0] if fork_specs else PDF2ZH_FORK_SPEC
+    print(
+        "💡 pdf2zh 当前从 fork 源安装: "
+        f"{_redact_requirement(current_spec)}"
+    )
+    print(
+        "💡 该方式需要本机可执行 git，并且能访问 GitHub；"
+        "请确认 git 已安装、网络/代理可用后重试。"
+    )
+    if uses_proxy:
+        print(
+            f"💡 已通过 {PDF2ZH_PROXY_PREFIX} 代理克隆主仓库与 git 子模块；"
+            "首次安装仍需下载较长时间。"
+        )
+    else:
+        print("💡 当前直连 GitHub（未注入 gh-proxy）；首次安装会连同 git 子模块一起下载。")
+    print("💡 也可回退（启动时的配置迁移不会覆盖环境变量）：")
+    direct_fallback = _redact_requirement(PDF2ZH_FORK_DIRECT_SPEC)
+    pypi_fallback = _redact_requirement(PDF2ZH_PYPI_FALLBACK_SPEC)
+    if uses_proxy:
+        print(
+            f"   1) 临时设置环境变量 {PDF2ZH_SPEC_ENV}=\"{direct_fallback}\""
+            " 改走直连（不注入代理）；"
+        )
+        print(
+            f"   2) 或设置 {PDF2ZH_SPEC_ENV}={pypi_fallback} 改走 PyPI；"
+        )
+    else:
+        print(
+            f"   1) 临时设置环境变量 {PDF2ZH_SPEC_ENV}={pypi_fallback}"
+            " 改走 PyPI；"
+        )
+    print(
+        f"   {3 if uses_proxy else 2}) 也可把 venv.json 中该项改为上述版本"
+        "（下次启动时托管项可能被模板迁移回代理源，长期回退请使用环境变量）。"
+    )
+
+
 def _run_install(
     env_tool: str,
     python_path: Path,
@@ -600,13 +940,19 @@ def _run_install(
         if command is None:
             return False
         print(f"\n📦 使用下载源: {index_url}")
+        # git 源需要再次克隆仓库与子模块，正式安装超时比普通依赖更宽。
+        timeout = (
+            PDF2ZH_GIT_INSTALL_TIMEOUT
+            if any(is_direct_reference(item) for item in requirements)
+            else 1200
+        )
         try:
             subprocess.run(
                 command,
                 cwd=SERVER_ROOT,
                 check=True,
-                env=_package_manager_env(),
-                timeout=1200,
+                env=_install_subprocess_env(requirements),
+                timeout=timeout,
             )
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
@@ -697,13 +1043,15 @@ def validate_environment(
             timeout=90,
         )
         if result.returncode != 0:
-            print("❌ 环境依赖完整性检查失败:", (result.stderr or result.stdout).strip())
+            # packaging 的错误会回显 requirement 原文，打印前先脱敏 URL 凭据。
+            detail = (result.stderr or result.stdout).strip()
+            print("❌ 环境依赖完整性检查失败:", _redact_requirement(detail))
             return False
         healthy, reason = managed_runtime_health(engine, python_path)
         if not healthy:
             print(f"❌ {engine} 关键运行时依赖检查失败: {reason}")
             return False
-        module = "pdf2zh_next" if engine == "pdf2zh_next" else "pdf2zh"
+        module = CLI_MODULES.get(engine, CLI_MODULES["pdf2zh"])
         env_dir = resolve_environment_root(python_path)
         suffix = ".exe" if platform.system() == "Windows" else ""
         cli_name = module + suffix
@@ -799,6 +1147,7 @@ def transactional_install_or_update(
         )
         if not sources:
             print("❌ 没有可验证且能解析完整依赖的下载源。")
+            _report_pdf2zh_fork_install_hint(engine, requirements)
             return False, selected_tool, env_dir
         if not _run_install(
             selected_tool,
@@ -807,6 +1156,7 @@ def transactional_install_or_update(
             sources,
             reinstall=force_reinstall,
         ):
+            _report_pdf2zh_fork_install_hint(engine, requirements)
             return False, selected_tool, env_dir
         if not validate_environment(
             engine,
@@ -814,6 +1164,7 @@ def transactional_install_or_update(
             requirements,
             require_deepseek_thinking=require_deepseek_thinking,
         ):
+            _report_pdf2zh_fork_install_hint(engine, requirements)
             return False, selected_tool, env_dir
         after_versions = read_versions(python_path, engine)
         print("\n✅ 翻译环境已更新。")
@@ -823,6 +1174,7 @@ def transactional_install_or_update(
         return True, selected_tool, env_dir
     except Exception as exc:
         print(f"\n⚠️ 翻译环境安装/更新失败: {exc}")
+        _report_pdf2zh_fork_install_hint(engine, requirements)
         restored = find_existing_environment(engine, selected_tool)
         if restored:
             print("   仍将尝试使用当前翻译环境。如果翻译异常，请重新运行 python update_packages.py。")
@@ -843,7 +1195,8 @@ def server_version_from_source() -> str:
 
 
 def package_update_state_path() -> Path:
-    return SERVER_ROOT / "config" / "package_update_state.json"
+    # 运行期状态与配置文件一并落在隐藏目录，避免污染 server/config
+    return cache_dir() / "package_update_state.json"
 
 
 def read_package_update_state() -> dict:

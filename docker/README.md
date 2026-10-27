@@ -56,7 +56,7 @@ cd docker
 ```txt
 Dockerfile
 docker-compose.yaml
-config/         （空文件夹，用于挂载配置）
+config/         （配置模板目录；运行期配置在 config/pdf-cache/）
 translated/     （空文件夹，用于挂载输出）
 ```
 
@@ -199,10 +199,19 @@ ZOTERO_PDF2ZH_FROM_IMAGE: byaidu/pdf2zh:1.9.6
 ```yaml
 volumes:
     - ./translated:/app/server/translated
-    - ./config:/app/server/config
+    # 运行期配置（config.toml / config.json / venv.json）在 pdf-cache 子目录
+    - ./config/pdf-cache:/app/server/config/pdf-cache
     - ./LXGWWenKai-Regular.ttf:/app/LXGWWenKai-Regular.ttf:ro # 可选
     - /var/run/docker.sock:/var/run/docker.sock
 ```
+
+> 升级说明：旧版本把配置直接放在 `./config/`。新版本启动时会把这些旧文件
+> **复制**（不是移动）到 `./config/pdf-cache/`，旧文件保留，回滚旧版本仍可用。
+> 若沿用仓库自带的 `docker-compose.yaml`（挂载整个 `./config`），运行期配置
+> 仍在其中的 `pdf-cache/` 子目录，无需修改挂载方式。
+>
+> 若您改为只挂载 `./config/pdf-cache`，请先把旧版 `./config/*.toml|*.json`
+> 移动到 `./config/pdf-cache/`（或暂时保留整目录挂载让启动脚本自动迁移）。
 
 ## 3) 重构启动（在 `docker` 目录）
 

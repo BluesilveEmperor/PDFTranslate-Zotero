@@ -70,21 +70,32 @@ RUN printf '%s\n' \
   'exec docker run --rm --volumes-from "${cid}" -e TZ -e http_proxy -e https_proxy -e HF_ENDPOINT "$img" pdf2zh_next "$@"' \
   > /usr/local/bin/pdf2zh_next && chmod +x /usr/local/bin/pdf2zh_next
 
-# 生成启动脚本：若挂载目录里缺失配置，则用备份示例生成；随后启动 server.py
+# 生成启动脚本：运行期配置写入 config/pdf-cache（与 server.py 的 app_root 语义一致）；
+# 旧版 config/*.json|*.toml 首次启动时只复制迁移、不删除；随后启动 server.py
 RUN printf '%s\n' \
   '#!/bin/sh' \
   'set -eu' \
-  'mkdir -p /app/server/translated /app/server/config' \
-  '# 首次启动生成 config.toml/config.json/venv.json（如果缺失）' \
-  'if [ ! -f /app/server/config/config.toml ] && [ -f /opt/pdf2zh-defaults/config.toml.example ]; then' \
-  '  cp /opt/pdf2zh-defaults/config.toml.example /app/server/config/config.toml' \
-  'fi' \
-  'if [ ! -f /app/server/config/config.json ] && [ -f /opt/pdf2zh-defaults/config.json.example ]; then' \
-  '  cp /opt/pdf2zh-defaults/config.json.example /app/server/config/config.json' \
-  'fi' \
-  'if [ ! -f /app/server/config/venv.json ] && [ -f /opt/pdf2zh-defaults/venv.json.example ]; then' \
-  '  cp /opt/pdf2zh-defaults/venv.json.example /app/server/config/venv.json' \
-  'fi' \
+  'CONFIG_DIR=/app/server/config' \
+  'CACHE_DIR="$CONFIG_DIR/pdf-cache"' \
+  'mkdir -p /app/server/translated "$CACHE_DIR"' \
+  '# 模板留在 config/ 供 server.py 回退；挂载空目录时从镜像备份补回 *.example' \
+  'for f in /opt/pdf2zh-defaults/*.example; do' \
+  '  [ -f "$f" ] || continue' \
+  '  base=${f##*/}' \
+  '  if [ ! -f "$CONFIG_DIR/$base" ]; then cp "$f" "$CONFIG_DIR/$base" 2>/dev/null || true; fi' \
+  'done' \
+  '# 旧版运行期配置迁移：仅复制，不删除用户旧文件' \
+  'for name in config.toml config.json venv.json; do' \
+  '  if [ -f "$CONFIG_DIR/$name" ] && [ ! -f "$CACHE_DIR/$name" ]; then' \
+  '    cp -p "$CONFIG_DIR/$name" "$CACHE_DIR/$name" || echo "⚠️ 旧配置迁移失败，将使用模板默认: $name" >&2' \
+  '  fi' \
+  'done' \
+  '# 首次启动从模板生成 pdf-cache 下缺失的配置' \
+  'for name in config.toml config.json venv.json; do' \
+  '  if [ ! -f "$CACHE_DIR/$name" ] && [ -f "/opt/pdf2zh-defaults/$name.example" ]; then' \
+  '    cp "/opt/pdf2zh-defaults/$name.example" "$CACHE_DIR/$name"' \
+  '  fi' \
+  'done' \
   '# 启动 server（固定 8890；禁用 venv、禁用自动更新；env_tool 让 server 走系统环境）' \
   'exec python /app/server/server.py --enable_venv=False --check_update=False --port="${PORT:-8890}" --env_tool=system' \
   > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh

@@ -31,7 +31,8 @@ RUN wget -O server.zip $SERVER_URL && \
     rm server.zip
 
 # 为配置文件和翻译结果声明挂载点
-VOLUME ["/app/config", "/app/server/translated"]
+# 运行期配置位于 <app_root>/config/pdf-cache（server.py 的 app_root 默认为 /app/server）
+VOLUME ["/app/server/config/pdf-cache", "/app/server/translated"]
 
 # 暴露新版 server.py 的默认端口
 EXPOSE 8890

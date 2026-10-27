@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import argparse
 
+from utils.environment_lifecycle import describe_pdf2zh_source
+from utils.environment_lifecycle import runtime_venv_config_path
 from utils.environment_lifecycle import transactional_install_or_update
 
 
@@ -55,9 +57,17 @@ def main() -> int:
         print("\n" + "=" * 68)
         print(f"🔄 更新翻译环境: {engine}")
         print(f"🔧 环境管理工具: {args.env_tool}")
+        if engine == "pdf2zh":
+            # pdf2zh 来自 fork 的 git 源；明确来源，避免用户误以为没有更新。
+            print(
+                "📦 安装源: "
+                + describe_pdf2zh_source(args.env_tool, runtime_venv_config_path())
+            )
         success, _, _ = transactional_install_or_update(
             engine,
             env_tool=args.env_tool,
+            # 与 Server 共用 <程序根>/config/pdf-cache/venv.json
+            config_path=runtime_venv_config_path(),
             preferred_index=args.index_url,
             network_timeout=args.network_timeout,
             require_deepseek_thinking=(engine == "pdf2zh_next"),

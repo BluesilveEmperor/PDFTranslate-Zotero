@@ -548,6 +548,14 @@
       // ================= 工具函数 =================
       function getFileTypeLabel(filename) {
         const lower = filename.toLowerCase();
+        // 新产物命名（Traned_*_）：长前缀先判，避免被 single/double 误吞
+        if (lower.includes('traned_crop_compare_')) return { code: 'crop-compare', desc: '裁剪对照(双栏专用)' };
+        if (lower.includes('traned_double_cut_')) return { code: 'dual-cut', desc: '双语裁剪' };
+        if (lower.includes('traned_single_cut_')) return { code: 'mono-cut', desc: '译文裁剪' };
+        if (lower.includes('traned_origin_cut_')) return { code: 'origin-cut', desc: '原文裁剪' };
+        if (lower.includes('traned_compare_')) return { code: 'compare', desc: '左右对照' };
+        if (lower.includes('traned_single_')) return { code: 'mono', desc: '纯译文' };
+        if (lower.includes('traned_double_')) return { code: 'dual', desc: '双语对照' };
         if (lower.includes('crop-compare') || lower.includes('crop.compare')) return { code: 'crop-compare', desc: '裁剪对照(双栏专用)' };
         if (lower.includes('mono-cut') || lower.includes('mono.cut')) return { code: 'mono-cut', desc: '译文裁剪' };
         if (lower.includes('dual-cut') || lower.includes('dual.cut')) return { code: 'dual-cut', desc: '双语裁剪' };

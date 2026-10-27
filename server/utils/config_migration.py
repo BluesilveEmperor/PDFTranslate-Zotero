@@ -10,6 +10,8 @@ from typing import Any
 
 import toml
 
+from utils.app_paths import template_dir
+
 
 def _package_name(requirement: str) -> str:
     raw = str(requirement).strip()
@@ -160,9 +162,22 @@ def _migrate_toml(active: Path, example: Path) -> None:
         print(f"✅ [配置迁移] {active.name}: 无需修改。")
 
 
+def _example_path(active: Path) -> Path:
+    """定位 ``active`` 对应的 ``*.example`` 模板。
+
+    运行期配置现在位于 ``<程序根>/config/pdf-cache``，而模板随发布包留在
+    ``<程序根>/config``。优先使用与实际配置同目录的模板（兼容直接调用与旧
+    布局、测试），找不到时回退到模板目录。
+    """
+    sibling = active.with_name(active.name + ".example")
+    if sibling.exists():
+        return sibling
+    return template_dir() / (active.name + ".example")
+
+
 def migrate_config_file(active_path: str | os.PathLike[str]) -> None:
     active = Path(active_path)
-    example = active.with_name(active.name + ".example")
+    example = _example_path(active)
     if not example.exists():
         if not active.exists():
             raise FileNotFoundError(f"缺少配置文件及模板: {active}")

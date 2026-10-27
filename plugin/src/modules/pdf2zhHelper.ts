@@ -13,6 +13,7 @@ import {
     JobProgressUpdate,
 } from "./pdf2zhTypes";
 import { loadLLMApisFromPrefs } from "./preferenceScript";
+import { classifyPdfFileName } from "../utils/pdfFileName";
 
 export class PDF2zhHelperFactory {
     // 翻译请求本身不要重试，避免同一篇 PDF 被重复翻译。
@@ -721,24 +722,9 @@ export class PDF2zhHelperFactory {
     }
     // *************** PDF文件类型管理 ***************
     // 这段逻辑应该放到server里面, 不需要在插件中
+    // 命名规则与判定顺序见 utils/pdfFileName.ts（纯函数，可单测）
     static getFileType(fileName: string): string {
-        if (fileName.indexOf("mono.pdf") != -1) {
-            return PDFType.MONO;
-        } else if (fileName.indexOf("dual.pdf") != -1) {
-            return PDFType.DUAL;
-        } else if (fileName.indexOf("mono-cut.pdf") != -1) {
-            return PDFType.MONO_CUT;
-        } else if (fileName.indexOf("dual-cut.pdf") != -1) {
-            return PDFType.DUAL_CUT;
-        } else if (fileName.indexOf("crop-compare.pdf") != -1) {
-            return PDFType.CROP_COMPARE;
-        } else if (fileName.indexOf("compare.pdf") != -1) {
-            return PDFType.COMPARE;
-        } else if (fileName.indexOf("cut.pdf") != -1) {
-            return PDFType.ORIGIN_CUT;
-        } else {
-            return PDFType.ORIGIN;
-        }
+        return classifyPdfFileName(fileName);
     }
 
     // ************* 从 Server.py 获取PDF文件 *************

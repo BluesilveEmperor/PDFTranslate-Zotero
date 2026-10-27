@@ -16,6 +16,7 @@ from utils.environment_lifecycle import (
     pdf2zh_next_meets_minimum,
     read_versions,
 )
+from utils.app_paths import cache_dir, ensure_hidden, migrate_legacy_configs
 from utils.config import Config
 from utils.config_map import pdf2zh_next_service_aliases
 from utils.config_migration import prepare_config_files
@@ -39,6 +40,199 @@ from utils.execute import execute_with_progress
 
 _VALUE_ERROR_RE = re.compile(r'(?m)^ValueError:\s*(?P<msg>.+)$')
 
+# 中间产物（上传源副本 + 内核输出 + 裁剪结果）统一写入 translated/.staging/<task_id>/，
+# 成功后才 os.replace 到 translated 根；磁盘名与回传 fileList 名保持一致。
+STAGING_DIRNAME = '.staging'
+
+# 新命名前缀 -> 产物类型。长前缀必须排在短前缀之前，否则
+# Traned_single_cut_ 会被 Traned_single_ 误吞。
+_TRANED_PREFIX_RULES = (
+    ('Traned_crop_compare_', 'crop-compare'),
+    ('Traned_double_cut_', 'dual-cut'),
+    ('Traned_single_cut_', 'mono-cut'),
+    ('Traned_origin_cut_', 'origin-cut'),
+    ('Traned_compare_', 'compare'),
+    ('Traned_double_', 'dual'),
+    ('Traned_single_', 'mono'),
+)
+
+# 剥前缀时同样按长前缀优先的顺序遍历。
+_TRANED_PREFIXES = tuple(prefix for prefix, _ in _TRANED_PREFIX_RULES)
+
+# 产物类型 -> 最终文件名前缀（对齐 PDFMathTranslate main 分支的 gui.py）。
+_PRODUCT_PREFIXES = {
+    'mono': 'Traned_single_',
+    'dual': 'Traned_double_',
+    'mono-cut': 'Traned_single_cut_',
+    'dual-cut': 'Traned_double_cut_',
+    'compare': 'Traned_compare_',
+    'crop-compare': 'Traned_crop_compare_',
+    'origin-cut': 'Traned_origin_cut_',
+}
+
+
+def strip_traned_prefix(stem):
+    """剥掉已有的 Traned_* 前缀，返回语义 stem（前缀匹配大小写不敏感）。
+
+    二次加工（cut / compare / crop-compare）的输入是 Zotero 回传的
+    ``Traned_*`` 文件，若直接拼新前缀会产生
+    ``Traned_single_Traned_double_x.pdf`` 之类的叠加名。
+
+    与插件 ``classifyPdfFileName`` 保持一致：新前缀按小写比较，因此
+    Windows 上被改成 ``traned_single_x.pdf`` / ``TRANED_DOUBLE_X.PDF`` 的
+    文件同样能剥离出语义 stem。旧命名（``mono.pdf`` 等）仍保持大小写敏感。
+    """
+    text = str(stem)
+    lowered = text.lower()
+    for prefix in _TRANED_PREFIXES:
+        if lowered.startswith(prefix.lower()):
+            # 前缀均为 ASCII，lower() 不改变长度；按原长度切片保留原大小写。
+            stripped = text[len(prefix):]
+            return stripped or text
+    return text
+
+
+# 中间产物后缀：pdf2zh_next 内核产物自带 ``.mono`` / ``.dual`` / ``.LR_dual``
+# 等标记，二次加工（cut / compare）时若不清洗，最终文件名会变成
+# ``Traned_compare_paper.LR_dual.pdf``，既不符合命名约定，也会让
+# /translatedInfo?stem=paper 的过滤失效。
+_INTERMEDIATE_SUFFIXES = (
+    '.no_watermark',
+    '.mono-cut',
+    '.dual-cut',
+    '.crop-compare',
+    '.compare',
+    '.LR_dual',
+    '.TB_dual',
+    '.mono',
+    '.dual',
+    '.cut',
+)
+
+
+def semantic_stem(path):
+    """从文件名得到语义 stem：去掉扩展名、``Traned_*`` 前缀与布局/中间产物标记。"""
+    stem = os.path.splitext(os.path.basename(str(path)))[0]
+    stem = strip_traned_prefix(stem)
+    for suffix in _INTERMEDIATE_SUFFIXES:
+        if len(stem) > len(suffix) and stem.endswith(suffix):
+            return stem[:-len(suffix)]
+    return stem
+
+
+def match_traned_product(name):
+    """按 ``Traned_*`` 前缀返回产物类型；不是合法产物命名时返回 ``None``。
+
+    与插件侧 ``classifyPdfFileName`` 保持同一契约：新前缀大小写不敏感；前缀后
+    必须还有非空 stem 且以 ``.pdf`` 结尾，否则 ``Traned_single_.pdf`` 这类残缺
+    命名会回落为原文。旧命名（``mono.pdf`` 等）由 :meth:`get_filetype` 处理，
+    仍保持大小写敏感。
+    """
+    text = str(name)
+    lowered = text.lower()
+    for prefix, outtype in _TRANED_PREFIX_RULES:
+        if not lowered.startswith(prefix.lower()):
+            continue
+        # 前缀均为 ASCII，lower() 不改变长度；用原名同位置切片取 remainder，
+        # 保留 stem 的原始大小写。
+        remainder = text[len(prefix):]
+        if not remainder.lower().endswith('.pdf'):
+            return None
+        return outtype if remainder[:-len('.pdf')] else None
+    return None
+
+
+def translated_filename(stem, outtype):
+    """按产物类型生成最终文件名（例如 ``Traned_single_cut_x.pdf``）。"""
+    prefix = _PRODUCT_PREFIXES.get(outtype)
+    if not prefix:
+        raise ValueError(f"未知产物类型: {outtype}")
+    return f"{prefix}{strip_traned_prefix(stem)}.pdf"
+
+
+def task_staging_dir(task_id):
+    """创建并返回某个任务的 staging 子目录。
+
+    每个任务一个子目录，避免并发翻译互相覆盖；``.staging`` 本身在 Windows
+    上设为隐藏。``task_id`` 会被清洗成安全的单层目录名。
+    """
+    safe_id = re.sub(r'[^A-Za-z0-9_.-]+', '_', str(task_id or '')).strip('._')
+    path = os.path.join(output_folder, STAGING_DIRNAME, safe_id[:64] or 'task')
+    os.makedirs(path, exist_ok=True)
+    ensure_hidden(os.path.join(output_folder, STAGING_DIRNAME))
+    return path
+
+
+def cleanup_staging(staging_dir):
+    """删除某任务的 staging 子目录，容忍 Windows 文件锁。
+
+    只删除 ``<output>/.staging/`` 下的直接子目录，避免误删输出根。允许目录
+    残留为空目录，但不应残留文件。
+    """
+    try:
+        path = os.path.abspath(str(staging_dir))
+        if os.path.basename(os.path.dirname(path)) != STAGING_DIRNAME:
+            return
+        if not os.path.isdir(path):
+            return
+        shutil.rmtree(path, ignore_errors=True)
+        if not os.path.isdir(path):
+            return
+        # 兜底：rmtree 可能因文件锁放弃，逐个删除残余文件。
+        for name in os.listdir(path):
+            child = os.path.join(path, name)
+            try:
+                if os.path.isdir(child):
+                    shutil.rmtree(child, ignore_errors=True)
+                else:
+                    os.remove(child)
+            except OSError:
+                pass
+        try:
+            os.rmdir(path)
+        except OSError:
+            pass
+    except Exception:  # noqa: BLE001 - 清理失败绝不能影响已完成的翻译结果
+        pass
+
+
+def move_products_to_output(products, stem):
+    """把 staging 内的最终产物移动到 translated 根并套用 Traned_* 命名。
+
+    ``products`` 为 ``[(staging_path, outtype), ...]``。``os.replace`` 原子
+    覆盖，重复翻译同名文件时不会残留旧产物。
+
+    Windows 上目标文件可能被 Zotero / 预览器占用，``os.replace`` 失败后改用
+    ``shutil.copy2`` 复制到同目录临时文件再 ``os.replace``：最终替换失败时旧
+    target 保持原样，不会被截断。仍然失败则抛 ``RuntimeError``，让任务走失败
+    路径，绝不静默返回 success 而缺失 fileList 文件。
+    """
+    moved = []
+    for path, outtype in products:
+        if not os.path.isfile(path):
+            continue
+        target = os.path.join(output_folder, translated_filename(stem, outtype))
+        try:
+            os.replace(path, target)
+        except OSError as exc:
+            print(f"⚠️ [Zotero PDF2zh Server] os.replace 归档失败，改用复制: {path} -> {target}: {exc}")
+            tmp_target = target + '.tmp'
+            try:
+                # 先复制到同目录临时文件：最终替换失败时旧 target 不会被截断。
+                shutil.copy2(path, tmp_target)
+                os.replace(tmp_target, target)
+            except OSError as copy_exc:
+                try:
+                    os.remove(tmp_target)
+                except OSError:
+                    pass  # 临时文件可能尚未创建或已被移走
+                print(f"❌ [Zotero PDF2zh Server] 产物归档失败: {path} -> {target}: {copy_exc}")
+                raise RuntimeError(
+                    f"产物归档失败: {path} -> {target}: {copy_exc}"
+                ) from copy_exc
+        moved.append(target)
+    return moved
+
 __version__ = "4.1.7"
 update_log = "远程/Docker 优先 HTTP 挂附件；新旧插件协议兼容；进度条显示翻译百分比；加固附件文件名；补齐额外字段白名单，可从下拉添加 *_enable_json_mode（默认关闭）。请同时更新插件和 Server。"
 
@@ -57,14 +251,18 @@ if sys.platform == 'win32':
 else:
     CREATE_NO_WINDOW = 0
 
-# 所有系统: 获取当前脚本server.py所在的路径
+# 所有系统: 获取当前脚本server.py所在的路径（源码布局下的程序根目录）
 root_path     = os.path.dirname(os.path.abspath(__file__))
+# 模板目录: 仅存放随发布包分发的 *.example, 保持原位; 运行期配置不写这里
 config_folder = os.path.join(root_path, 'config')
+# 运行期配置目录: <程序根>/config/pdf-cache
+# 默认即 <server>/config/pdf-cache, 可用环境变量 PDF2ZH_HOME 覆盖程序根
+runtime_config_folder = str(cache_dir())
 output_folder = os.path.join(root_path, 'translated')
-config_path = { # 配置文件路径
-    pdf2zh:      os.path.join(config_folder, 'config.json'),
-    pdf2zh_next: os.path.join(config_folder, 'config.toml'),
-    venv:        os.path.join(config_folder, 'venv.json'),
+config_path = { # 配置文件路径（均位于隐藏的运行期配置目录）
+    pdf2zh:      os.path.join(runtime_config_folder, 'config.json'),
+    pdf2zh_next: os.path.join(runtime_config_folder, 'config.toml'),
+    venv:        os.path.join(runtime_config_folder, 'venv.json'),
 }
 
 ######### venv config #########
@@ -251,20 +449,13 @@ class PDFTranslator:
             raise ValueError("Only PDF uploads are accepted")
         return name
 
-    def process_request(self):
+    def process_request(self, task_id=None):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             raise ValueError("Invalid JSON request")
         config = Config(data)
 
         file_name = self._safe_upload_filename(data.get('fileName'))
-        base = os.path.abspath(output_folder)
-        input_path = os.path.abspath(os.path.join(base, file_name))
-        try:
-            if os.path.commonpath([base, input_path]) != base:
-                raise ValueError("Invalid PDF filename")
-        except ValueError:
-            raise ValueError("Invalid PDF filename")
 
         file_content = data.get('fileContent', '')
         if not isinstance(file_content, str):
@@ -276,8 +467,29 @@ class PDFTranslator:
         except Exception as exc:
             raise ValueError(f"Invalid PDF content: {exc}") from exc
 
-        with open(input_path, 'wb') as f:
-            f.write(decoded)
+        # 所有校验通过后才创建 staging 目录：非法请求不能在 translated/.staging
+        # 留下副作用（空任务目录）。
+        # 上传源副本写入该任务的 staging 子目录，绝不落到 translated 根；
+        # 未提供 task_id 时退回输出根（兼容直接调用）。
+        base = os.path.abspath(task_staging_dir(task_id) if task_id else output_folder)
+        input_path = os.path.abspath(os.path.join(base, file_name))
+        try:
+            if os.path.commonpath([base, input_path]) != base:
+                raise ValueError("Invalid PDF filename")
+        except ValueError:
+            if task_id:
+                cleanup_staging(base)
+            raise ValueError("Invalid PDF filename")
+
+        try:
+            with open(input_path, 'wb') as f:
+                f.write(decoded)
+        except OSError as exc:
+            # 磁盘满 / 权限不足：调用方此时尚未拿到 input_path，若不在这里清理，
+            # translated/.staging/ 会留下空任务目录（或半截文件）。
+            if task_id:
+                cleanup_staging(base)
+            raise ValueError(f"无法保存上传的 PDF: {exc}") from exc
 
         return input_path, config
 
@@ -437,6 +649,8 @@ class PDFTranslator:
                         name.startswith(stem + '-')
                         or name.startswith(stem + '.')
                         or name.startswith(stem + '_')
+                        # 新命名 Traned_*_<stem>.pdf 也应按语义 stem 命中
+                        or (name.startswith('Traned_') and semantic_stem(name) == stem)
                     ):
                         continue
                     full = os.path.abspath(os.path.join(base, name))
@@ -495,9 +709,11 @@ class PDFTranslator:
         # 生成任务ID并记录开始时间（用于 index.html 前端进度显示）
         task_id = str(uuid.uuid4())
         start_time = datetime.now()
+        input_path = None
+        handed_off = False
 
         try:
-            input_path, config = self.process_request()
+            input_path, config = self.process_request(task_id)
             infile_type = self.get_filetype(input_path)
             engine = config.engine
             task_info = self._build_task_info(
@@ -507,41 +723,77 @@ class PDFTranslator:
             if infile_type != 'origin':
                 return jsonify({'status': 'error', 'message': 'Input file must be an original PDF file.'}), 400
 
-            return self._start_accepted_job(
+            payload = self._start_accepted_job(
                 task_id,
                 task_info,
                 lambda: self._execute_translate_job(task_id, input_path, config, engine),
                 '/translate',
             )
+            # job 自己负责清理 staging（含异步线程路径）
+            handed_off = True
+            return payload
         except Exception as e:
             task_manager.complete_task(task_id, 'failed', str(e), error=str(e))
             return self._handle_exception(e, context='/translate')
+        finally:
+            if not handed_off and input_path:
+                cleanup_staging(os.path.dirname(input_path))
 
     def _execute_translate_job(self, task_id, input_path, config, engine):
-        def addFileList(fileList, filePath):
-            if os.path.exists(filePath):
-                fileList.append(filePath)
+        """翻译任务出口：成功才归档产物，任何结果都清理 staging。"""
+        stem = semantic_stem(input_path)
+        staging_dir = os.path.dirname(input_path)
+        try:
+            products = self._translate_products(task_id, input_path, config, engine)
+            final_paths = move_products_to_output(products, stem)
+            for f in final_paths:
+                size = os.path.getsize(f)
+                print(f"🐲 翻译成功, 生成文件: {f}, 大小为: {size/1024.0/1024.0:.2f} MB")
+
+            if not final_paths:
+                task_manager.complete_task(task_id, 'failed', '操作失败，请查看详细日志。', error='无文件生成')
+                return {'status': 'error', 'message': '操作失败，请查看详细日志。'}
+
+            payload = self._success_files_payload(final_paths)
+            task_manager.complete_task(
+                task_id,
+                'success',
+                f'成功生成 {len(final_paths)} 个文件',
+                file_list=payload['fileList'],
+                file_paths=payload['filePaths'],
+                output_dir=payload['outputDir'],
+                result=payload,
+            )
+            return payload
+        finally:
+            cleanup_staging(staging_dir)
+
+    def _translate_products(self, task_id, input_path, config, engine):
+        """执行翻译与后处理，返回 staging 内的 [(path, outtype)] 列表。"""
+        stem = semantic_stem(input_path)
+        products = []
 
         if engine == pdf2zh:
             print("🔍 [Zotero PDF2zh Server] PDF2zh 开始翻译文件...")
-            fileList = self.translate_pdf(input_path, config, task_id)
-            mono_path, dual_path = fileList[0], fileList[1]
+            mono_path, dual_path = self.translate_pdf(input_path, config, task_id)
+            products.append((mono_path, 'mono'))
+            products.append((dual_path, 'dual'))
             if config.mono_cut:
-                mono_cut_path = self.get_filename_after_process(mono_path, 'mono-cut', engine)
+                mono_cut_path = self.get_filename_after_process(mono_path, 'mono-cut', engine, stem=stem)
                 self.cropper.crop_pdf(config, mono_path, 'mono', mono_cut_path, 'mono-cut')
-                addFileList(fileList, mono_cut_path)
+                products.append((mono_cut_path, 'mono-cut'))
             if config.dual_cut:
-                dual_cut_path = self.get_filename_after_process(dual_path, 'dual-cut', engine)
+                dual_cut_path = self.get_filename_after_process(dual_path, 'dual-cut', engine, stem=stem)
                 self.cropper.crop_pdf(config, dual_path, 'dual', dual_cut_path, 'dual-cut')
-                addFileList(fileList, dual_cut_path)
+                products.append((dual_cut_path, 'dual-cut'))
             if config.crop_compare:
-                crop_compare_path = self.get_filename_after_process(dual_path, 'crop-compare', engine)
+                crop_compare_path = self.get_filename_after_process(dual_path, 'crop-compare', engine, stem=stem)
                 self.cropper.crop_pdf(config, dual_path, 'dual', crop_compare_path, 'crop-compare')
-                addFileList(fileList, crop_compare_path)
+                products.append((crop_compare_path, 'crop-compare'))
             if config.compare and config.babeldoc == False: # babeldoc不支持compare
-                compare_path = self.get_filename_after_process(dual_path, 'compare', engine)
+                compare_path = self.get_filename_after_process(dual_path, 'compare', engine, stem=stem)
                 self.cropper.merge_pdf(dual_path, compare_path)
-                addFileList(fileList, compare_path)
+                products.append((compare_path, 'compare'))
 
         elif engine == pdf2zh_next:
             print("🔍 [Zotero PDF2zh Server] PDF2zh_next 开始翻译文件...")
@@ -553,17 +805,17 @@ class PDFTranslator:
             if config.no_dual and config.no_mono:
                 raise ValueError("⚠️ [Zotero PDF2zh Server] pdf2zh_next 引擎至少需要生成 mono 或 dual 文件, 请检查 no_dual 和 no_mono 配置项")
 
-            fileList = []
+
             retList = self.translate_pdf_next(input_path, config, task_id)
 
             if config.no_mono:
                 dual_path = retList[0]
             elif config.no_dual:
                 mono_path = retList[0]
-                fileList.append(mono_path)
+                products.append((mono_path, 'mono'))
             else:
                 mono_path, dual_path = retList[0], retList[1]
-                fileList.append(mono_path)
+                products.append((mono_path, 'mono'))
 
             # Canonicalize every pdf2zh_next dual output so later operations
             # can recover its layout even after the file is attached to Zotero
@@ -581,69 +833,46 @@ class PDFTranslator:
                     TB_dual_path = primary_dual_path
 
                 if config.dual:
-                    fileList.append(primary_dual_path)
+                    products.append((primary_dual_path, 'dual'))
 
             if config.mono_cut:
-                mono_cut_path = self.get_filename_after_process(mono_path, 'mono-cut', engine)
+                mono_cut_path = self.get_filename_after_process(mono_path, 'mono-cut', engine, stem=stem)
                 self.cropper.crop_pdf(config, mono_path, 'mono', mono_cut_path, 'mono-cut')
-                addFileList(fileList, mono_cut_path)
+                products.append((mono_cut_path, 'mono-cut'))
 
             if config.dual_cut:
                 if not TB_dual_path:
                     raise ValueError("dual-cut 需要 TB dual 输入，但未能准备该布局。")
-                dual_cut_path = self.get_filename_after_process(TB_dual_path, 'dual-cut', engine)
+                dual_cut_path = self.get_filename_after_process(TB_dual_path, 'dual-cut', engine, stem=stem)
                 self.cropper.crop_pdf(config, TB_dual_path, 'dual', dual_cut_path, 'dual-cut')
-                addFileList(fileList, dual_cut_path)
+                products.append((dual_cut_path, 'dual-cut'))
 
             if config.crop_compare:
                 if not TB_dual_path:
                     raise ValueError("crop-compare 需要 TB dual 输入，但未能准备该布局。")
-                crop_compare_path = self.get_filename_after_process(TB_dual_path, 'crop-compare', engine)
+                crop_compare_path = self.get_filename_after_process(TB_dual_path, 'crop-compare', engine, stem=stem)
                 self.cropper.crop_pdf(config, TB_dual_path, 'dual', crop_compare_path, 'crop-compare')
-                addFileList(fileList, crop_compare_path)
+                products.append((crop_compare_path, 'crop-compare'))
 
             if config.compare:
                 if config.dual_mode == 'LR':
                     if not LR_dual_path:
                         raise ValueError("compare 需要 LR dual 输入，但未能准备该布局。")
-                    compare_path = self.get_filename_after_process(LR_dual_path, 'compare', engine)
+                    compare_path = self.get_filename_after_process(LR_dual_path, 'compare', engine, stem=stem)
                     if os.path.exists(compare_path):
                         os.remove(compare_path)
                     shutil.copyfile(LR_dual_path, compare_path)
-                    addFileList(fileList, compare_path)
+                    products.append((compare_path, 'compare'))
                 else:
                     if not TB_dual_path:
                         raise ValueError("compare 需要 TB dual 输入，但未能准备该布局。")
-                    compare_path = self.get_filename_after_process(TB_dual_path, 'compare', engine)
+                    compare_path = self.get_filename_after_process(TB_dual_path, 'compare', engine, stem=stem)
                     self.cropper.merge_pdf(TB_dual_path, compare_path)
-                    addFileList(fileList, compare_path)
+                    products.append((compare_path, 'compare'))
         else:
             raise ValueError(f"⚠️ [Zotero PDF2zh Server] 输入了不支持的翻译引擎: {engine}, 目前脚本仅支持: pdf2zh/pdf2zh_next")
 
-        existing = [p for p in fileList if os.path.exists(p)]
-        missing  = [p for p in fileList if not os.path.exists(p)]
-
-        for m in missing:
-            print(f"⚠️ 期望生成但不存在: {m}")
-        for f in existing:
-            size = os.path.getsize(f)
-            print(f"🐲 翻译成功, 生成文件: {f}, 大小为: {size/1024.0/1024.0:.2f} MB")
-
-        if not existing:
-            task_manager.complete_task(task_id, 'failed', '操作失败，请查看详细日志。', error='无文件生成')
-            return {'status': 'error', 'message': '操作失败，请查看详细日志。'}
-
-        payload = self._success_files_payload(existing)
-        task_manager.complete_task(
-            task_id,
-            'success',
-            f'成功生成 {len(existing)} 个文件',
-            file_list=payload['fileList'],
-            file_paths=payload['filePaths'],
-            output_dir=payload['outputDir'],
-            result=payload,
-        )
-        return payload
+        return products
 
     def _handle_exception(self, exc, status_code=500, context=None):
         return jsonify(self._exception_payload(exc, context=context)), status_code
@@ -731,8 +960,11 @@ class PDFTranslator:
 
     # 裁剪 /crop
     def crop(self):
+        task_id = str(uuid.uuid4())
+        input_path = None
         try:
-            input_path, config = self.process_request()
+            input_path, config = self.process_request(task_id)
+            stem = semantic_stem(input_path)
             infile_type = self.get_filetype(input_path)
 
             source_path = input_path
@@ -750,21 +982,27 @@ class PDFTranslator:
                     'message': f'当前 PDF 类型 {infile_type} 不能再次执行裁剪。请选择原文、mono 或 dual 文件。'
                 }), 400
 
-            new_path = self.get_filename_after_process(input_path, new_type, config.engine)
+            new_path = self.get_filename_after_process(input_path, new_type, config.engine, stem=stem)
             self.cropper.crop_pdf(config, source_path, infile_type, new_path, new_type)
             print(f"🔍 [Zotero PDF2zh Server] 开始裁剪文件: {source_path}, {infile_type}, 裁剪类型: {new_type}, {new_path}")
 
-            if os.path.exists(new_path):
-                return self._success_files_response([new_path])
+            final_paths = move_products_to_output([(new_path, new_type)], stem)
+            if final_paths:
+                return self._success_files_response(final_paths)
             return jsonify({'status': 'error', 'message': f'Crop failed: {new_path} not found'}), 500
         except Exception as e:
             return self._handle_exception(e, context='/crop')
+        finally:
+            if input_path:
+                cleanup_staging(os.path.dirname(input_path))
 
     def crop_compare(self):
         task_id = str(uuid.uuid4())
         start_time = datetime.now()
+        input_path = None
+        handed_off = False
         try:
-            input_path, config = self.process_request()
+            input_path, config = self.process_request(task_id)
             infile_type = self.get_filetype(input_path)
             engine = config.engine
 
@@ -784,7 +1022,7 @@ class PDFTranslator:
             task_info = self._build_task_info(
                 task_id, input_path, config, engine, start_time, status='开始处理'
             )
-            return self._start_accepted_job(
+            payload = self._start_accepted_job(
                 task_id,
                 task_info,
                 lambda: self._execute_crop_compare_job(
@@ -792,56 +1030,69 @@ class PDFTranslator:
                 ),
                 '/crop-compare',
             )
+            handed_off = True
+            return payload
         except Exception as e:
             task_manager.complete_task(task_id, 'failed', str(e), error=str(e))
             return self._handle_exception(e, context='/crop-compare')
+        finally:
+            if not handed_off and input_path:
+                cleanup_staging(os.path.dirname(input_path))
 
     def _execute_crop_compare_job(self, task_id, input_path, config, engine, infile_type):
-        if infile_type == 'origin':
-            if engine == pdf2zh or engine != pdf2zh_next:
-                config.engine = 'pdf2zh'
-                fileList = self.translate_pdf(input_path, config, task_id)
-                input_path = fileList[1]
-                if not os.path.exists(input_path):
-                    raise FileNotFoundError(f'Dual file not found: {input_path}')
+        stem = semantic_stem(input_path)
+        staging_dir = os.path.dirname(input_path)
+        try:
+            if infile_type == 'origin':
+                if engine == pdf2zh or engine != pdf2zh_next:
+                    config.engine = 'pdf2zh'
+                    fileList = self.translate_pdf(input_path, config, task_id)
+                    input_path = fileList[1]
+                    if not os.path.exists(input_path):
+                        raise FileNotFoundError(f'Dual file not found: {input_path}')
+                else:
+                    # crop-compare internally requires alternating-page TB dual.
+                    config.dual_mode = 'TB'
+                    config.no_dual = False
+                    config.no_mono = True
+                    fileList = self.translate_pdf_next(input_path, config, task_id)
+                    input_path = fileList[0]
+                    if not os.path.exists(input_path):
+                        raise FileNotFoundError(f'Dual file not found: {input_path}')
+
+            infile_type = self.get_filetype(input_path)
+            if infile_type == 'dual-cut':
+                new_path = self.get_filename_after_process(input_path, 'crop-compare', engine, stem=stem)
+                self.cropper.merge_pdf(input_path, new_path)
+            elif infile_type == 'dual':
+                source_path = input_path
+                if self.get_dual_mode(input_path, config.dual_mode) == 'LR':
+                    _, source_path = self.cropper.pdf_dual_mode(input_path, 'LR', 'TB')
+                new_path = self.get_filename_after_process(input_path, 'crop-compare', engine, stem=stem)
+                self.cropper.crop_pdf(config, source_path, 'dual', new_path, 'crop-compare')
             else:
-                # crop-compare internally requires alternating-page TB dual.
-                config.dual_mode = 'TB'
-                config.no_dual = False
-                config.no_mono = True
-                fileList = self.translate_pdf_next(input_path, config, task_id)
-                input_path = fileList[0]
-                if not os.path.exists(input_path):
-                    raise FileNotFoundError(f'Dual file not found: {input_path}')
+                raise ValueError(f'当前 PDF 类型 {infile_type} 不能执行 crop-compare。请选择原文、dual 或 dual-cut 文件。')
 
-        infile_type = self.get_filetype(input_path)
-        if infile_type == 'dual-cut':
-            new_path = self.get_filename_after_process(input_path, 'crop-compare', engine)
-            self.cropper.merge_pdf(input_path, new_path)
-        elif infile_type == 'dual':
-            source_path = input_path
-            if self.get_dual_mode(input_path, config.dual_mode) == 'LR':
-                _, source_path = self.cropper.pdf_dual_mode(input_path, 'LR', 'TB')
-            new_path = self.get_filename_after_process(input_path, 'crop-compare', engine)
-            self.cropper.crop_pdf(config, source_path, 'dual', new_path, 'crop-compare')
-        else:
-            raise ValueError(f'当前 PDF 类型 {infile_type} 不能执行 crop-compare。请选择原文、dual 或 dual-cut 文件。')
-
-        if not os.path.exists(new_path):
-            raise RuntimeError(f'Crop-compare failed: {new_path} not found')
-        fileName = os.path.basename(new_path)
-        size = os.path.getsize(new_path)
-        print(f"🐲 双语对照成功(裁剪后拼接), 生成文件: {fileName}, 大小为: {size/1024.0/1024.0:.2f} MB")
-        return self._complete_job_files(
-            task_id, [new_path], f'成功生成 {fileName}'
-        )
+            final_paths = move_products_to_output([(new_path, 'crop-compare')], stem)
+            if not final_paths:
+                raise RuntimeError(f'Crop-compare failed: {new_path} not found')
+            fileName = os.path.basename(final_paths[0])
+            size = os.path.getsize(final_paths[0])
+            print(f"🐲 双语对照成功(裁剪后拼接), 生成文件: {fileName}, 大小为: {size/1024.0/1024.0:.2f} MB")
+            return self._complete_job_files(
+                task_id, final_paths, f'成功生成 {fileName}'
+            )
+        finally:
+            cleanup_staging(staging_dir)
 
     # /compare
     def compare(self):
         task_id = str(uuid.uuid4())
         start_time = datetime.now()
+        input_path = None
+        handed_off = False
         try:
-            input_path, config = self.process_request()
+            input_path, config = self.process_request(task_id)
             infile_type = self.get_filetype(input_path)
             engine = config.engine
 
@@ -861,7 +1112,7 @@ class PDFTranslator:
             task_info = self._build_task_info(
                 task_id, input_path, config, engine, start_time, status='开始处理'
             )
-            return self._start_accepted_job(
+            payload = self._start_accepted_job(
                 task_id,
                 task_info,
                 lambda: self._execute_compare_job(
@@ -869,58 +1120,66 @@ class PDFTranslator:
                 ),
                 '/compare',
             )
+            handed_off = True
+            return payload
         except Exception as e:
             task_manager.complete_task(task_id, 'failed', str(e), error=str(e))
             return self._handle_exception(e, context='/compare')
+        finally:
+            if not handed_off and input_path:
+                cleanup_staging(os.path.dirname(input_path))
 
     def _execute_compare_job(self, task_id, input_path, config, engine, infile_type):
-        if infile_type == 'origin':
-            if engine == pdf2zh or engine != pdf2zh_next:
-                config.engine = 'pdf2zh'
-                fileList = self.translate_pdf(input_path, config, task_id)
-                input_path = fileList[1]
-                if not os.path.exists(input_path):
-                    raise FileNotFoundError(f'Dual file not found: {input_path}')
-            else:
-                config.dual_mode = 'LR'
-                config.no_dual = False
-                config.no_mono = True
-                fileList = self.translate_pdf_next(input_path, config, task_id)
-                dual_path = fileList[0]
-                if not os.path.exists(dual_path):
-                    raise FileNotFoundError(f'Dual file not found: {dual_path}')
-                new_path = self.get_filename_after_process(input_path, 'compare', engine)
+        stem = semantic_stem(input_path)
+        staging_dir = os.path.dirname(input_path)
+        try:
+            if infile_type == 'origin':
+                if engine == pdf2zh or engine != pdf2zh_next:
+                    config.engine = 'pdf2zh'
+                    fileList = self.translate_pdf(input_path, config, task_id)
+                    input_path = fileList[1]
+                    if not os.path.exists(input_path):
+                        raise FileNotFoundError(f'Dual file not found: {input_path}')
+                else:
+                    config.dual_mode = 'LR'
+                    config.no_dual = False
+                    config.no_mono = True
+                    fileList = self.translate_pdf_next(input_path, config, task_id)
+                    input_path = fileList[0]
+                    if not os.path.exists(input_path):
+                        raise FileNotFoundError(f'Dual file not found: {input_path}')
+
+            infile_type = self.get_filetype(input_path)
+            if infile_type != 'dual':
+                raise ValueError(f'当前 PDF 类型 {infile_type} 不能执行 compare。请选择原文或 dual 文件。')
+
+            new_path = self.get_filename_after_process(input_path, 'compare', engine, stem=stem)
+            if self.get_dual_mode(input_path, config.dual_mode) == 'LR':
                 if os.path.exists(new_path):
                     os.remove(new_path)
-                os.rename(dual_path, new_path)
-                fileName = os.path.basename(new_path)
-                print(f"🐲 双语对照成功, 生成文件: {fileName}, 大小为: {os.path.getsize(new_path)/1024.0/1024.0:.2f} MB")
-                return self._complete_job_files(
-                    task_id, [new_path], f'成功生成 {fileName}'
-                )
+                shutil.copyfile(input_path, new_path)
+            else:
+                self.cropper.merge_pdf(input_path, new_path)
 
-        infile_type = self.get_filetype(input_path)
-        if infile_type != 'dual':
-            raise ValueError(f'当前 PDF 类型 {infile_type} 不能执行 compare。请选择原文或 dual 文件。')
-
-        new_path = self.get_filename_after_process(input_path, 'compare', engine)
-        if self.get_dual_mode(input_path, config.dual_mode) == 'LR':
-            if os.path.exists(new_path):
-                os.remove(new_path)
-            shutil.copyfile(input_path, new_path)
-        else:
-            self.cropper.merge_pdf(input_path, new_path)
-
-        if not os.path.exists(new_path):
-            raise RuntimeError(f'Compare failed: {new_path} not found')
-        fileName = os.path.basename(new_path)
-        print(f"🐲 双语对照成功, 生成文件: {fileName}, 大小为: {os.path.getsize(new_path)/1024.0/1024.0:.2f} MB")
-        return self._complete_job_files(
-            task_id, [new_path], f'成功生成 {fileName}'
-        )
+            final_paths = move_products_to_output([(new_path, 'compare')], stem)
+            if not final_paths:
+                raise RuntimeError(f'Compare failed: {new_path} not found')
+            fileName = os.path.basename(final_paths[0])
+            print(f"🐲 双语对照成功, 生成文件: {fileName}, 大小为: {os.path.getsize(final_paths[0])/1024.0/1024.0:.2f} MB")
+            return self._complete_job_files(
+                task_id, final_paths, f'成功生成 {fileName}'
+            )
+        finally:
+            cleanup_staging(staging_dir)
 
     def get_filetype(self, path):
         name = os.path.basename(str(path))
+        # 新命名 Traned_* 优先；长前缀必须先判，否则
+        # Traned_single_cut_ / Traned_double_cut_ 会被短前缀误判为 mono/dual。
+        traned_type = match_traned_product(name)
+        if traned_type:
+            return traned_type
+        # 旧命名（历史文件仍在 translated 根目录，必须继续识别）。
         # Check terminal/specific suffixes before generic dual/mono markers.
         if 'crop-compare.pdf' in name:
             return 'crop-compare'
@@ -990,28 +1249,25 @@ class PDFTranslator:
             return 'compare'
         return 'unknown'
 
-    def get_filename_after_process(self, inpath, outtype, engine):
+    def get_filename_after_process(self, inpath, outtype, engine=None, stem=None):
+        """返回 staging 内的中间产物路径（最终由 move_products_to_output 归档）。
+
+        旧实现按 ``{intype}.pdf`` 做字符串替换，遇到 ``Traned_*`` 新命名时
+        替换不生效、会返回输入本身；现在统一用语义 stem 生成
+        ``<stem>.<outtype>.pdf``（原文裁剪沿用 ``.cut.pdf``），因此新命名与
+        旧命名输入都能得到正确的中间产物名。
+
+        Args:
+            inpath: 中间输入文件（位于本任务的 staging 子目录）。
+            outtype: 产物类型，如 ``mono-cut`` / ``compare``。
+            engine: 保留参数以兼容调用方（中间产物命名不再区分引擎）。
+            stem: 语义 stem；缺省时从 ``inpath`` 推导（剥 Traned_* 前缀）。
+        """
         inpath = str(inpath)
-        intype = self.get_filetype(inpath)
-        if intype == 'dual':
-            # Remove the layout marker from derived terminal products.
-            for suffix in ('.LR_dual.pdf', '.TB_dual.pdf'):
-                if inpath.endswith(suffix):
-                    base = inpath[:-len(suffix)]
-                    return base + (f'-{outtype}.pdf' if engine == pdf2zh else f'.{outtype}.pdf')
-
-        if engine == pdf2zh or engine != pdf2zh_next:
-            if intype == 'origin':
-                if outtype == 'origin-cut':
-                    return inpath.replace('.pdf', '-cut.pdf')
-                return inpath.replace('.pdf', f'-{outtype}.pdf')
-            return inpath.replace(f'{intype}.pdf', f'{outtype}.pdf')
-
-        if intype == 'origin':
-            if outtype == 'origin-cut':
-                return inpath.replace('.pdf', '.cut.pdf')
-            return inpath.replace('.pdf', f'.{outtype}.pdf')
-        return inpath.replace(f'{intype}.pdf', f'{outtype}.pdf')
+        if stem is None:
+            stem = semantic_stem(inpath)
+        filename = f"{stem}.cut.pdf" if outtype == 'origin-cut' else f"{stem}.{outtype}.pdf"
+        return os.path.join(os.path.dirname(inpath), filename)
 
     def translate_pdf(self, input_path, config, task_id=None):
         # TODO: 如果翻译失败了, 自动执行跳过字体子集化, 并且显示生成的文件的大小
@@ -1020,11 +1276,13 @@ class PDFTranslator:
             config.targetLang = 'zh'
         if config.sourceLang == 'zh-CN': # TOFIX, pdf2zh 1.x converter没有通过
             config.sourceLang = 'zh'
+        # 内核产物写入本任务的 staging 子目录，避免落到 translated 根
+        output_dir = os.path.dirname(input_path)
         cmd = [
             pdf2zh,
             input_path,
             '--t', str(config.thread_num),
-            '--output', str(output_folder),
+            '--output', str(output_dir),
             '--service', str(config.service),
             '--lang-in', str(config.sourceLang),
             '--lang-out', str(config.targetLang),
@@ -1049,11 +1307,11 @@ class PDFTranslator:
             execute_with_progress(cmd, task_id, args, self.env_manager if args.enable_venv else None)
         fileName = os.path.basename(input_path).replace('.pdf', '')
         if config.babeldoc:
-            output_path_mono = os.path.join(output_folder, f"{fileName}.{config.targetLang}.mono.pdf")
-            output_path_dual = os.path.join(output_folder, f"{fileName}.{config.targetLang}.dual.pdf")
+            output_path_mono = os.path.join(output_dir, f"{fileName}.{config.targetLang}.mono.pdf")
+            output_path_dual = os.path.join(output_dir, f"{fileName}.{config.targetLang}.dual.pdf")
         else:
-            output_path_mono = os.path.join(output_folder, f"{fileName}-mono.pdf")
-            output_path_dual = os.path.join(output_folder, f"{fileName}-dual.pdf")
+            output_path_mono = os.path.join(output_dir, f"{fileName}-mono.pdf")
+            output_path_dual = os.path.join(output_dir, f"{fileName}-dual.pdf")
         output_files = [output_path_mono, output_path_dual]
         for f in output_files: # 显示生成
             if not os.path.exists(f):
@@ -1068,12 +1326,14 @@ class PDFTranslator:
             config.service = pdf2zh_next_service_aliases[config.service]
         config.update_config_file(config_path[pdf2zh_next])
 
+        # 内核产物写入本任务的 staging 子目录，避免落到 translated 根
+        output_dir = os.path.dirname(input_path)
         cmd = [
             pdf2zh_next,
             input_path,
             '--' + config.service,
             '--qps', str(config.qps),
-            '--output', str(output_folder),
+            '--output', str(output_dir),
             '--lang-in', str(config.sourceLang),
             '--lang-out', str(config.targetLang),
             '--config-file', str(config_path[pdf2zh_next]), # 使用默认的config path路径
@@ -1116,10 +1376,10 @@ class PDFTranslator:
             cmd.extend(['--pool-max-worker', str(config.pool_size)])
 
         fileName = os.path.basename(input_path).replace('.pdf', '')
-        no_watermark_mono = os.path.join(output_folder, f"{fileName}.no_watermark.{config.targetLang}.mono.pdf")
-        no_watermark_dual = os.path.join(output_folder, f"{fileName}.no_watermark.{config.targetLang}.dual.pdf")
-        watermark_mono = os.path.join(output_folder, f"{fileName}.{config.targetLang}.mono.pdf")
-        watermark_dual = os.path.join(output_folder, f"{fileName}.{config.targetLang}.dual.pdf")
+        no_watermark_mono = os.path.join(output_dir, f"{fileName}.no_watermark.{config.targetLang}.mono.pdf")
+        no_watermark_dual = os.path.join(output_dir, f"{fileName}.no_watermark.{config.targetLang}.dual.pdf")
+        watermark_mono = os.path.join(output_dir, f"{fileName}.{config.targetLang}.mono.pdf")
+        watermark_dual = os.path.join(output_dir, f"{fileName}.{config.targetLang}.dual.pdf")
 
         output_path = []
         if config.no_watermark: # 无水印
@@ -1241,6 +1501,17 @@ class PDFTranslator:
 
 def prepare_path():
     os.makedirs(output_folder, exist_ok=True)
+    # 运行期配置目录: <程序根>/config/pdf-cache（cache_dir 已按 PDF2ZH_HOME 推导）
+    os.makedirs(runtime_config_folder, exist_ok=True)
+    # Windows 下把 config 与 pdf-cache 两级目录设为隐藏，失败不影响启动
+    if os.name == 'nt':
+        ensure_hidden(config_folder)
+        ensure_hidden(runtime_config_folder)
+    # 旧版运行期配置直接放在 server/config；仅复制到新位置，保留旧文件
+    migrated = migrate_legacy_configs(config_folder, runtime_config_folder)
+    if migrated:
+        names = ', '.join(os.path.basename(path) for path in migrated)
+        print(f"✅ [配置迁移] 旧配置已复制到 {runtime_config_folder}: {names}")
     # Never overwrite an existing user config with the .example template.
     # Migration only adds missing defaults; user/custom values always win.
     prepare_config_files(config_path)
@@ -1316,12 +1587,12 @@ if __name__ == '__main__':
     # 4.2 目录权限检查
     print("\n--- 目录权限检查 ---")
     required_dirs = [
-        ('translated', '翻译输出目录'),
-        ('config', '配置文件目录')
+        ('translated', '翻译输出目录', output_folder),
+        ('config', '配置模板目录', config_folder),
+        (os.path.join('config', 'pdf-cache'), '运行期配置目录', runtime_config_folder),
     ]
 
-    for dir_name, description in required_dirs:
-        dir_path = os.path.join(root_path, dir_name)
+    for dir_name, description, dir_path in required_dirs:
         if not os.path.exists(dir_path):
             print(f"⚠️  {description} ({dir_name}) 不存在，尝试创建...")
             try:

@@ -13,8 +13,10 @@ from __future__ import annotations
 import argparse
 
 from utils.environment_lifecycle import find_existing_environment
+from utils.environment_lifecycle import describe_pdf2zh_source
 from utils.environment_lifecycle import format_versions
 from utils.environment_lifecycle import read_versions
+from utils.environment_lifecycle import runtime_venv_config_path
 from utils.environment_lifecycle import transactional_install_or_update
 from utils.package_network import print_probe_report
 from utils.package_network import probe_indexes
@@ -44,6 +46,9 @@ def status(engine: str, env_tool: str) -> bool:
     print(f"\n[{engine}] env_tool={tool}")
     print(f"环境: {env_dir}")
     print(f"Python: {python_path}")
+    if engine == "pdf2zh":
+        # pdf2zh 可能来自 fork 的 git 源，版本号与 PyPI 不同，需明确告知来源。
+        print(f"安装源: {describe_pdf2zh_source(tool)}")
     for name, version in versions.items():
         print(f"  {name:14s} {version or 'NOT INSTALLED'}")
     return True
@@ -78,6 +83,12 @@ def update(
         print(
             f"\n[{engine}] 未找到 {env_tool} 环境，将按首次安装流程创建。"
         )
+    if engine == "pdf2zh":
+        # 提醒用户：pdf2zh 来自 fork 的 git 源，未变更版本号不代表没有更新动作。
+        print(
+            f"[{engine}] 安装源: "
+            f"{describe_pdf2zh_source(existing[0] if existing else env_tool)}"
+        )
 
     if not assume_yes:
         print(
@@ -94,6 +105,8 @@ def update(
     success, _, _ = transactional_install_or_update(
         engine,
         env_tool=env_tool,
+        # 与 Server 共用 <程序根>/config/pdf-cache/venv.json
+        config_path=runtime_venv_config_path(),
         preferred_index=index_url,
         network_timeout=timeout,
         require_deepseek_thinking=(engine == "pdf2zh_next"),

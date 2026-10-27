@@ -202,6 +202,9 @@ def perform_update_optimized(root_path, local_version, expected_version=None, up
     project_root = os.path.dirname(root_path)
     exclude_directories = [
         "translated",
+        # 运行期配置（config.json / config.toml / venv.json）与状态缓存，
+        # 由用户本地维护，绝不参与源码同步、备份或统计。
+        "pdf-cache",
         "zotero-pdf2zh-next-venv",
         "zotero-pdf2zh-venv",
         "zotero-pdf2zh-next-venv.staging",
