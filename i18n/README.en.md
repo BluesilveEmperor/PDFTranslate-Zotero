@@ -17,7 +17,7 @@ Translate PDFs right inside Zotero with [PDF2zh](https://github.com/Byaidu/PDFMa
 
 This repository (**PDFTranslate-Zotero**) is a distribution paired with the author's [PDFMathTranslate fork](https://github.com/BluesilveEmperor/PDFtranslate), adapted from the upstream [zotero-pdf2zh](https://github.com/guaguastandup/zotero-pdf2zh) (by guaguastandup) and distributed under the upstream license.
 
-Version **v1.0.0** | [中文说明](../README.md) | [Old version v2.4.3](./2.4.3%20version/README.md)
+Version **v1.0.0** | [中文说明](../README.md)
 
 **📝 Available Languages:** [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Italiano](README.it.md) | [Français](README.fr.md)
 

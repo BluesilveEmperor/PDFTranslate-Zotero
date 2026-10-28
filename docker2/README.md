@@ -116,7 +116,7 @@ docker compose up -d
     # 下载 dev 配置文件
     wget https://raw.githubusercontent.com/guaguastandup/zotero-pdf2zh/main/docker2/docker-compose.dev.yaml
     # 下载并解压 server 文件夹
-    wget https://github.com/guaguastandup/zotero-pdf2zh/releases/download/v4.0.0/server.zip
+    wget https://github.com/BluesilveEmperor/PDFTranslate-Zotero/releases/latest/download/server.zip
     unzip server.zip
     ```
 2.  使用 `-f` 参数指定配置文件启动：
@@ -197,7 +197,7 @@ ports:
   </details>
 
 <details>
-<summary><b>Q6: 新版 Docker 部署和旧版插件(v2.4.3)的部署有什么区别？</b></summary>
+<summary><b>Q6: 新版 Docker 部署和旧版插件部署有什么区别？</b></summary>
 
 新版 Docker 部署进行了全面优化，更简单、更强大。主要区别如下：
 
