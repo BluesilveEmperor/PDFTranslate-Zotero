@@ -11,8 +11,8 @@ import urllib.request
 import zipfile
 
 
-OWNER = "guaguastandup"
-REPO = "zotero-pdf2zh"
+OWNER = "BluesilveEmperor"
+REPO = "PDFTranslate-Zotero"
 USER_AGENT = "zotero-pdf2zh-server-updater"
 NOTICE_RELATIVE_PATH = "server/notice.json"
 NOTICE_TIMEOUT = 8

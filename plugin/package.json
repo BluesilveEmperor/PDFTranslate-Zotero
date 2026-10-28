@@ -1,6 +1,6 @@
 {
     "name": "zotero-pdf2zh",
-    "version": "4.1.7",
+    "version": "1.0.0",
     "description": "PDF translation for Zotero with PDF2zh/PDF2zh_next, bilingual layouts, batch processing, and DeepSeek V4 support.",
     "config": {
         "addonName": "Zotero PDF2zh",
@@ -11,13 +11,13 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/guaguastandup/zotero-pdf2zh.git"
+        "url": "git+https://github.com/BluesilveEmperor/PDFTranslate-Zotero.git"
     },
-    "author": "guaguastandup",
+    "author": "BluesilveEmperor",
     "bugs": {
-        "url": "https://github.com/guaguastandup/zotero-pdf2zh/issues"
+        "url": "https://github.com/BluesilveEmperor/PDFTranslate-Zotero/issues"
     },
-    "homepage": "https://github.com/guaguastandup/zotero-pdf2zh#readme",
+    "homepage": "https://github.com/BluesilveEmperor/PDFTranslate-Zotero#readme",
     "license": "AGPL-3.0-or-later",
     "scripts": {
         "start": "zotero-plugin serve",

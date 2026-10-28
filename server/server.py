@@ -233,8 +233,8 @@ def move_products_to_output(products, stem):
         moved.append(target)
     return moved
 
-__version__ = "4.1.7"
-update_log = "远程/Docker 优先 HTTP 挂附件；新旧插件协议兼容；进度条显示翻译百分比；加固附件文件名；补齐额外字段白名单，可从下拉添加 *_enable_json_mode（默认关闭）。请同时更新插件和 Server。"
+__version__ = "1.0.0"
+update_log = "首发 1.0.0：配置迁至 config/pdf-cache；产物统一 Traned_single_/Traned_double_ 命名，中间产物进 translated/.staging；pdf2zh 依赖改走 fork git 源（gh-proxy 加速）。请同时更新插件和 Server。"
 
 ############# config file #########
 pdf2zh      = 'pdf2zh'
@@ -1551,8 +1551,8 @@ if __name__ == '__main__':
     print("\n===== 💡提示💡 =====")
     print("如果您遇到问题......")
     print("1️⃣ 请阅读本项目的【github主页】, 这里有最准确的信息")
-    print("    · 🤖 github: https://github.com/guaguastandup/zotero-pdf2zh")
-    print("    · 🤖 如果国内无法访问github, 请移步: gitee: https://gitee.com/guaguastandup/zotero-pdf2zh\n")
+    print("    · 🤖 github: https://github.com/BluesilveEmperor/PDFTranslate-Zotero")
+    print("    · 🤖 如果国内无法访问github, 请移步: gitee: https://github.com/BluesilveEmperor/PDFTranslate-Zotero\n")
 
     print("2️⃣ 加入zotero-pdf2zh插件QQ群: 请在 GitHub / Gitee 仓库主页查看最新群号和入群口令")
     print("    · 【提问前】您需要先确保已经阅读过本项目主页的教程以及常见问题汇总")
