@@ -16,6 +16,8 @@
 
 在 Zotero 中直接使用 [PDF2zh](https://github.com/Byaidu/PDFMathTranslate) 与 [PDF2zh_next](https://github.com/PDFMathTranslate/PDFMathTranslate-next) 翻译 PDF，保留公式与排版，并提供双语对照、裁剪阅读、批量翻译与多种 LLM 服务配置。
 
+[![配套主程序](https://img.shields.io/badge/配套主程序-PDFtranslate-blue?style=flat-square&logo=github)](https://github.com/BluesilveEmperor/PDFtranslate)
+
 本仓库 **PDFTranslate-Zotero** 是与 [PDFMathTranslate 个人 fork](https://github.com/BluesilveEmperor/PDFtranslate) 配套的发行版，基于上游 [zotero-pdf2zh](https://github.com/guaguastandup/zotero-pdf2zh)（作者 guaguastandup）适配而来，遵循上游开源协议。
 
 **📝 其他语言 / Other Languages：**

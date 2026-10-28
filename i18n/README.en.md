@@ -15,6 +15,8 @@
 
 Translate PDFs right inside Zotero with [PDF2zh](https://github.com/Byaidu/PDFMathTranslate) and [PDF2zh_next](https://github.com/PDFMathTranslate/PDFMathTranslate-next), keeping formulas and layout, with bilingual comparison, cropped reading, batch translation and multiple LLM providers.
 
+[![Companion app](https://img.shields.io/badge/Companion%20app-PDFtranslate-blue?style=flat-square&logo=github)](https://github.com/BluesilveEmperor/PDFtranslate)
+
 This repository (**PDFTranslate-Zotero**) is a distribution paired with the author's [PDFMathTranslate fork](https://github.com/BluesilveEmperor/PDFtranslate), adapted from the upstream [zotero-pdf2zh](https://github.com/guaguastandup/zotero-pdf2zh) (by guaguastandup) and distributed under the upstream license.
 
 Version **v1.0.0** | [中文说明](../README.md)
