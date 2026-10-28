@@ -1,0 +1,36 @@
+name: Release assets
+
+# 本机网络无法访问 uploads.github.com（release asset 上传端点），
+# 因此在 GitHub 侧下载构建产物并上传到已存在的 Release。
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+      run_id:
+        description: 'Workflow run id that produced the release-assets artifact'
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download "${{ inputs.run_id }}" -n release-assets -D dist -R "${{ github.repository }}"
+          ls -lhR dist
+
+      - name: Upload assets to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ inputs.tag }}" dist/server.zip --clobber -R "${{ github.repository }}"
+          gh release upload "${{ inputs.tag }}" dist/plugin/build/zotero-pdf-2-zh.xpi --clobber -R "${{ github.repository }}"
+          gh release view "${{ inputs.tag }}" -R "${{ github.repository }}" --json assets
