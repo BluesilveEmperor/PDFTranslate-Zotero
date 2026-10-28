@@ -16,7 +16,13 @@ from utils.environment_lifecycle import (
     pdf2zh_next_meets_minimum,
     read_versions,
 )
-from utils.app_paths import cache_dir, ensure_hidden, migrate_legacy_configs
+from utils.app_paths import (
+    bundled_python,
+    bundled_site_packages,
+    cache_dir,
+    ensure_hidden,
+    migrate_legacy_configs,
+)
 from utils.config import Config
 from utils.config_map import pdf2zh_next_service_aliases
 from utils.config_migration import prepare_config_files
@@ -233,7 +239,7 @@ def move_products_to_output(products, stem):
         moved.append(target)
     return moved
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 update_log = "首发 1.0.0：配置迁至 config/pdf-cache；产物统一 Traned_single_/Traned_double_ 命名，中间产物进 translated/.staging；pdf2zh 依赖改走 fork git 源（gh-proxy 加速）。请同时更新插件和 Server。"
 
 ############# config file #########
@@ -401,6 +407,7 @@ class PDFTranslator:
     # 配置信息 API /api/config - 供 index.html 前端显示当前服务配置
     ##################################################################
     def get_config(self):
+        env_manager = getattr(self, 'env_manager', None)
         config_info = {
             'version': __version__,
             'port': args.port,
@@ -410,6 +417,12 @@ class PDFTranslator:
             'mirror_source': args.mirror_source if args.enable_mirror else '-',
             'skip_install': args.skip_install,
             'enable_winexe': args.enable_winexe,
+            'bundled': bool(getattr(env_manager, 'bundled', False)),
+            'runtime': (
+                env_manager.describe_runtime()
+                if env_manager is not None
+                else '系统环境（--enable_venv=False）'
+            ),
         }
         return jsonify({'status': 'success', 'config': config_info})
 
@@ -1499,6 +1512,30 @@ class PDFTranslator:
             request_handler=_QuietAccessHandler,
         )
 
+
+def print_runtime_status():
+    """打印翻译运行时状态；返回是否命中便携内置运行时。
+
+    便携包（``runtime/`` + ``site-packages/``）自包含，命中后不再探测
+    uv/conda；若 ``runtime/`` 存在但 ``site-packages/`` 缺失，只告警，
+    不中断启动。
+    """
+    runtime_python = bundled_python()
+    if runtime_python is None:
+        return False
+    print("📦 便携模式: 使用内置 Python 运行时")
+    print(f"   Python: {runtime_python}")
+    site_packages = bundled_site_packages()
+    if site_packages is None:
+        print(
+            "⚠️ 检测到 runtime/ 但缺少 site-packages/，"
+            "翻译依赖可能不完整；Server 仍会启动。"
+        )
+    else:
+        print(f"   site-packages: {site_packages}")
+    return True
+
+
 def prepare_path():
     os.makedirs(output_folder, exist_ok=True)
     # 运行期配置目录: <程序根>/config/pdf-cache（cache_dir 已按 PDF2ZH_HOME 推导）
@@ -1630,9 +1667,12 @@ if __name__ == '__main__':
     else:
         print(f"✅ Python版本符合要求")
 
-    # 4.4 虚拟环境检查
-    if args.enable_venv:
-        print("\n--- 虚拟环境检查 ---")
+    # 4.4 翻译运行时检查（便携包优先）
+    print("\n--- 翻译运行时检查 ---")
+    if print_runtime_status():
+        # 便携包自包含：跳过 uv/conda 探测与首次环境创建
+        pass
+    elif args.enable_venv:
         print(f"🔧 环境管理模式: {args.env_tool}")
         if args.env_tool == 'auto':
             print("💡 auto: 优先沿用已有 uv/conda；没有已有环境时优先创建 uv。")
@@ -1661,6 +1701,8 @@ if __name__ == '__main__':
                 print(f"ℹ️ {engine_name}: 暂无托管环境，首次使用时将自动创建。")
         if not found:
             print("💡 尚未创建翻译环境；Server 本身可以先正常启动。")
+    else:
+        print("ℹ️ 已禁用托管环境（--enable_venv=False），使用当前 Python 环境。")
 
     # 检查总结
     print("\n" + "="*60)

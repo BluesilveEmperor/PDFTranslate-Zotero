@@ -313,30 +313,63 @@ jobs:
                       assert '检查依赖完整性和 `pdf2zh_next --help`' not in text
 
                   release = Path('.github/workflows/release.yml').read_text(encoding='utf-8')
-                  assert 'zip -r server.zip server' in release
-                  assert "grep -q 'server/server.py'" in release
+                  # 便携包由 Windows job 构建（自带 runtime + site-packages），
+                  # release job 只下载 artifact 并上传 Release 资产。
+                  assert 'build-server-portable:' in release
+                  assert 'runs-on: windows-latest' in release
+                  assert 'bash server/build_portable.sh' in release
+                  assert 'name: server-portable' in release
+                  assert 'server/dist/server.zip' in release
+                  assert 'needs: build-server-portable' in release
+                  assert 'gh release upload' in release
+                  assert 'dist/server.zip --clobber' in release
                   assert 'plugin/build/zotero-pdf-2-zh.xpi --clobber' in release
+                  # 旧的「源码 zip（不含运行时）」步骤必须移除，避免发布无运行时包。
+                  assert 'zip -r server.zip server' not in release
                   print('Server security/config/updater invariants OK')
                   PY
 
-            - name: Simulate Release server.zip layout
+            - name: Verify portable server.zip layout contract
+              # CI 不重复真实构建便携包（需 Windows runner + 联网下载运行时与依赖，
+              # 耗时数十分钟），改为静态校验构建脚本的产物清单与源码文件是否齐备。
               run: |
-                  rm -f /tmp/server.zip
-                  zip -rq /tmp/server.zip server \
-                    -x 'server/translated/*' \
-                    -x 'server/config/pdf-cache/*' \
-                    -x 'server/zotero-pdf2zh-venv/*' \
-                    -x 'server/zotero-pdf2zh-next-venv/*' \
-                    -x 'server/config/config.json' \
-                    -x 'server/config/config.toml' \
-                    -x 'server/config/venv.json' \
-                    -x 'server/__pycache__/*' \
-                    -x 'server/*/__pycache__/*' \
-                    -x '*.pyc'
-                  unzip -l /tmp/server.zip | grep -q 'server/server.py'
-                  unzip -l /tmp/server.zip | grep -q 'server/config/config.toml.example'
-                  unzip -l /tmp/server.zip | grep -q 'server/update_packages.py'
-                  unzip -l /tmp/server.zip | grep -q 'server/utils/deepseek_thinking.py'
+                  python - <<'PY'
+                  from pathlib import Path
+
+                  # 便携包根 = server/ 的内容：zip 内是 server.py，而不是
+                  # server/server.py，因此源码断言仍用 server/ 前缀。
+                  for rel in (
+                      'server/server.py',
+                      'server/config/config.toml.example',
+                      'server/update_packages.py',
+                      'server/utils/deepseek_thinking.py',
+                      'server/utils/app_paths.py',
+                  ):
+                      assert Path(rel).is_file(), rel
+
+                  script = Path('server/build_portable.sh')
+                  if not script.is_file():
+                      print('server/build_portable.sh 尚未合入，跳过便携包静态断言')
+                      raise SystemExit(0)
+
+                  text = script.read_text(encoding='utf-8').lower()
+                  # 构建脚本的产物清单：Windows 运行时、site-packages、
+                  # 双启动脚本，以及 dist/ 下的 server.zip 输出。
+                  for token in (
+                      'runtime',
+                      'site-packages',
+                      'start_server.bat',
+                      'start_server.sh',
+                      'dist',
+                      'server.zip',
+                      '__main__.py',
+                  ):
+                      assert token in text, f'便携构建脚本缺少产物约定: {token}'
+                  # 产物路径必须与 release.yml 上传 artifact 的路径一致。
+                  release = Path('.github/workflows/release.yml').read_text(encoding='utf-8')
+                  assert 'server/dist/server.zip' in release
+                  print('Portable server.zip layout contract OK')
+                  PY
 
     lint:
         runs-on: ubuntu-latest

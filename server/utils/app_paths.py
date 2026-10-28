@@ -9,10 +9,15 @@
 
 - :func:`app_root` —— 程序根目录，默认即 ``server.py`` 所在目录（源码布局），
   可通过环境变量 ``PDF2ZH_HOME`` 显式覆盖；
+- :func:`install_root` —— Server 程序安装目录（``server.py`` 所在目录），
+  **不受** ``PDF2ZH_HOME`` 影响，用于判定便携包是否自带运行时；
+- :func:`bundled_runtime_dir` / :func:`bundled_python` /
+  :func:`bundled_site_packages` —— 便携包内置运行时探测；
 - :func:`cache_dir` —— 返回并准备好 ``<app_root>/config/pdf-cache``；
 - :func:`ensure_hidden` —— 尽力把文件 / 目录标记为隐藏（Windows 打隐藏属性）；
 - :func:`template_dir` —— 返回 ``<server>/config``，即 ``*.example`` 模板目录
   （随程序分发，不跟随 ``PDF2ZH_HOME``）；
+
 - :func:`migrate_legacy_configs` —— 把旧版 ``server/config`` 下的运行期配置
   复制到新位置（只复制、不删除）。
 """
@@ -71,6 +76,51 @@ def template_dir() -> Path:
     ``*.example``；运行期配置文件在 :func:`cache_dir` 下。
     """
     return Path(__file__).resolve().parent.parent / _CONFIG_SUBDIR
+
+
+def install_root() -> Path:
+    """返回程序安装目录，即 ``server.py`` 所在目录（不随 ``PDF2ZH_HOME`` 变化）。
+
+    与 :func:`app_root` 的区别：
+
+    - ``app_root`` 是「运行期可写根」，用户可用 ``PDF2ZH_HOME`` 把配置 / 缓存
+      重定向到别处；
+    - ``install_root`` 是「程序文件实际所在目录」。便携包（``runtime/`` 与
+      ``site-packages/``）随程序一起分发、自包含，因此探测内置运行时必须基于
+      它，否则用户设置 ``PDF2ZH_HOME`` 后便携判定会丢失。
+    """
+    return Path(__file__).resolve().parent.parent
+
+
+def bundled_runtime_dir() -> Path | None:
+    """返回内置便携 Python 目录 ``<install_root>/runtime``；不存在返回 None。"""
+    candidate = install_root() / "runtime"
+    return candidate if candidate.is_dir() else None
+
+
+def bundled_site_packages() -> Path | None:
+    """返回便携依赖目录 ``<install_root>/site-packages``；不存在返回 None。"""
+    candidate = install_root() / "site-packages"
+    return candidate if candidate.is_dir() else None
+
+
+def bundled_python() -> Path | None:
+    """返回便携 Python 解释器；未打包或解释器缺失时返回 None。
+
+    - Windows：``runtime/python.exe``；
+    - 其它平台：``runtime/bin/python3``，再兜底 ``runtime/bin/python``。
+    """
+    runtime = bundled_runtime_dir()
+    if runtime is None:
+        return None
+    if _is_windows():
+        candidates = (runtime / "python.exe",)
+    else:
+        candidates = (runtime / "bin" / "python3", runtime / "bin" / "python")
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def cache_dir() -> Path:

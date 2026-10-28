@@ -11,7 +11,11 @@ import traceback
 from collections import defaultdict
 from pathlib import Path
 
+from utils.app_paths import bundled_python
+from utils.app_paths import bundled_site_packages
+from utils.app_paths import install_root
 from utils.environment_lifecycle import ENGINE_ENV_NAMES
+from utils.environment_lifecycle import bundled_python_env
 from utils.environment_lifecycle import environment_path_entries
 from utils.environment_lifecycle import find_conda_env_path
 from utils.environment_lifecycle import find_existing_environment
@@ -88,9 +92,25 @@ class VirtualEnvManager:
         self.conda_env_path = defaultdict(lambda: None)
         self.ensured_env = defaultdict(lambda: None)
 
-        # Respect the user's selected manager when checking the existing env.
-        # Only explicit `auto` may discover either uv or conda.
-        if not self.skip_install:
+        # 便携包优先：runtime/ 存在时完全跳过 uv/conda 探测、安装与更新提示。
+        # 注意探测基于 server.py 所在目录（install_root），不随 PDF2ZH_HOME 变化。
+        self._bundled = False
+        self.bundled_python_path = None
+        self.bundled_site_packages_path = None
+        runtime_python = bundled_python()
+        if runtime_python is not None:
+            self._bundled = True
+            self.bundled_python_path = runtime_python
+            self.bundled_site_packages_path = bundled_site_packages()
+            print(f"📦 便携模式: 使用内置 Python 运行时: {runtime_python}")
+            if self.bundled_site_packages_path is None:
+                print(
+                    "⚠️ 检测到 runtime/ 但缺少 site-packages/，"
+                    "翻译可能因缺少依赖而失败。"
+                )
+        elif not self.skip_install:
+            # Respect the user's selected manager when checking the existing env.
+            # Only explicit `auto` may discover either uv or conda.
             try:
                 maybe_prompt_existing_user_update(
                     env_tool=self.default_env_tool,
@@ -99,6 +119,48 @@ class VirtualEnvManager:
                 )
             except Exception as exc:
                 print(f"⚠️ 翻译环境更新提示检查失败，将继续启动 Server: {exc}")
+
+    @property
+    def bundled(self) -> bool:
+        """是否命中随包分发的便携运行时（只读）。"""
+        return self._bundled
+
+    def describe_runtime(self) -> str:
+        """返回当前翻译运行时的可读描述（启动日志 / /api/config 使用）。"""
+        if self._bundled:
+            site = self.bundled_site_packages_path or "缺失"
+            return (
+                f"便携内置运行时: {self.bundled_python_path}"
+                f"（site-packages: {site}）"
+            )
+        return f"托管环境（env_tool={self.default_env_tool}）"
+
+    def _bundled_ready(self) -> bool:
+        """便携 Python 是否可用；不探测 uv/conda，也不安装任何依赖。"""
+        python_path = self.bundled_python_path
+        if not python_path or not Path(python_path).is_file():
+            print(f"❌ 内置 Python 运行时不可用: {python_path}")
+            return False
+        return True
+
+    def _bundled_command(self, command):
+        """便携模式下直接用内置 Python 执行，并注入内置 site-packages。"""
+        if not self._bundled_ready():
+            raise RuntimeError(
+                "便携包内置 Python 运行时不可用；请确认 runtime/ 目录完整，"
+                "或使用 --enable_venv=False 改用当前 Python 环境。"
+            )
+        python_path = str(self.bundled_python_path)
+        if command and str(command[0]).lower() in {"pdf2zh", "pdf2zh_next"}:
+            final_cmd = [python_path, "-u", "-m", str(command[0]), *command[1:]]
+        else:
+            final_cmd = [python_path, "-u", *command]
+        if self.bundled_site_packages_path is not None:
+            env = bundled_python_env(self.bundled_site_packages_path)
+        else:
+            env = managed_python_env()
+        env["PYTHONUNBUFFERED"] = "1"
+        return final_cmd, env
 
     def _preferred_tools(self) -> list[str]:
         if self.default_env_tool == "conda":
@@ -148,6 +210,8 @@ class VirtualEnvManager:
             self.conda_env_path[env_name] = str(env_dir)
 
     def _existing(self, engine: str, env_tool: str):
+        if self._bundled:
+            return "bundled", install_root(), self.bundled_python_path
         expected = self.env_name.get(engine, ENGINE_ENV_NAMES[engine])
         if expected != ENGINE_ENV_NAMES[engine]:
             if env_tool == "uv":
@@ -173,6 +237,9 @@ class VirtualEnvManager:
         working runtime. Missing managed packages or a broken pdf2zh_next CLI
         still cause a transactional repair attempt.
         """
+        if self._bundled:
+            # 内置 site-packages 由发布包保证；不启动 uv/conda 健康检查子进程。
+            return self._bundled_ready()
         try:
             _, required_packages = load_requirements(engine, env_tool, self.config_path)
             if required_packages:
@@ -215,6 +282,8 @@ class VirtualEnvManager:
             return False
 
     def check_envtool(self, envtool):
+        if self._bundled:
+            return True  # 便携模式不依赖 uv/conda
         executable = shutil.which(envtool)
         if not executable:
             print(f"❌ {envtool} 未安装或不在 PATH 中")
@@ -235,15 +304,22 @@ class VirtualEnvManager:
         return False
 
     def check_env(self, engine, envtool):
+        if self._bundled:
+            return self._bundled_ready()
         return self._existing(engine, envtool) is not None
 
     def check_packages(self, engine, envtool, envname=None):
+        if self._bundled:
+            return self._bundled_ready()
         existing = self._existing(engine, envtool)
         if not existing:
             return False
         return self._requirements_ok(engine, envtool, existing[2])
 
     def install_packages(self, engine, envtool, envname=None, force_reinstall=False):
+        if self._bundled:
+            print("📦 便携模式: 依赖已随包内置，跳过安装。")
+            return self._bundled_ready()
         if self.skip_install:
             print(f"⚠️ skip_install=True，不修改 {engine} 环境")
             return self.check_env(engine, envtool)
@@ -263,6 +339,8 @@ class VirtualEnvManager:
         return self.install_packages(engine, envtool)
 
     def ensure_env(self, engine):
+        if self._bundled:
+            return self._bundled_ready()
         cached = self.ensured_env.get(engine)
         if cached:
             tool, _, cached_path = cached
@@ -346,6 +424,8 @@ class VirtualEnvManager:
         return None
 
     def get_conda_bin_dir(self):
+        if self._bundled:
+            return False
         if self.curr_envtool != "conda" or not self.curr_envname:
             return False
         env_path = self._get_conda_env_path(self.curr_envname)
@@ -355,6 +435,8 @@ class VirtualEnvManager:
         return bin_dir if os.path.exists(bin_dir) else False
 
     def _resolved_command(self, command):
+        if self._bundled:
+            return self._bundled_command(command)
         engine = "pdf2zh_next" if "pdf2zh_next" in " ".join(command).lower() else "pdf2zh"
         if not self.ensure_env(engine):
             raise RuntimeError(

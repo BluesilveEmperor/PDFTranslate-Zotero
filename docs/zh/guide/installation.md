@@ -1,79 +1,87 @@
 # 安装指南
 
-本文档适用于 Zotero PDF2zh **v4.1.1**（含 v4.1.0 功能）。v4.1.0 起，Server 源码、Zotero 插件和 Python 翻译环境分别维护：普通用户不需要手工决定 `pdf2zh_next`、BabelDOC、PyMuPDF 的具体版本。
+本文档适用于 Zotero PDF2zh **v1.1.0**。Server 已改为「解压即用」便携包：`server.zip` 内置 Python 3.12 运行时与全部依赖，**普通用户不需要安装 Python、uv 或 conda**。
 
 ::: tip 开始之前
-建议准备：
-- **Python 3.12**（推荐）
 - **Zotero 7 / 8 / 9 / 10**
-- **uv**（推荐的新用户环境管理器）或已有的 conda
+- **Server 便携包 `server.zip`**（从 Releases 下载）
+- 不需要 Python / uv / conda；只有使用 `pdf2zh_next` 或源码运行时才需要（见[高级：源码运行](#source-mode)）
 :::
 
-::: warning Windows Conda 用户
-请使用 **v4.1.1** 及以后的 Server。v4.1.0 会把 Conda 的 Python 错找成 `<env>\\Scripts\\python.exe`，从而把健康环境当成损坏。正确路径是环境根目录的 `<env>\\python.exe`。
+::: warning 解压要完整
+`server.zip` 约 296MB、包含 21,244 个条目。请等解压完全结束再启动；缺少 `runtime/` 或 `site-packages/` 会导致启动失败或翻译失败。
 :::
 
-## 1. 下载 Server
+## 1. 下载 Server 便携包
 
-请从 GitHub Release 下载 `server.zip`，不要再使用仓库 `main` 分支中的静态 zip：
-
-```text
-https://github.com/guaguastandup/zotero-pdf2zh/releases/latest/download/server.zip
-```
-
-下载后解压，目录结构应为：
+请从 GitHub Release 下载 `server.zip`，不要使用仓库 `main` 分支中的静态 zip，也不要用源码归档：
 
 ```text
-zotero-pdf2zh/
-└── server/
-    ├── server.py
-    ├── requirements.txt
-    ├── update_packages.py
-    ├── config/
-    └── utils/
+https://github.com/BluesilveEmperor/PDFTranslate-Zotero/releases/latest/download/server.zip
 ```
 
-进入 `server` 目录：
-
-```shell
-cd server
-```
-
-## 2. 安装 Server 自身依赖
-
-这一步只安装 Flask、TOML、PDF 基础库等 **Server 运行依赖**，不会要求您手工安装 `pdf2zh_next` / BabelDOC：
-
-```shell
-python -m pip install -r requirements.txt
-```
-
-## 3. 推荐：安装 uv
-
-如果电脑里还没有本项目的翻译环境，推荐安装 uv：
+解压到空文件夹（建议非系统盘），例如 `D:\zotero-pdf2zh\server`：
 
 ```shell
 # macOS / Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows PowerShell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+mkdir -p ~/zotero-pdf2zh/server
+unzip server.zip -d ~/zotero-pdf2zh/server
 ```
 
-验证：
+Windows 可右键 `server.zip` →「全部解压缩」→ 选择目标文件夹。
+
+## 2. 检查目录结构
+
+zip 根目录没有外层 `server/` 前缀，解压后文件直接落在目标文件夹。目录应为：
+
+```text
+D:\zotero-pdf2zh\server\
+├── start_server.bat        # Windows 启动器
+├── start_server.sh         # Linux / macOS 启动器
+├── server.py
+├── runtime\                 # 内置 Python 3.12（约 22MB）
+├── site-packages\           # 全部依赖（解压后约 813MB）
+├── config\
+└── ...
+```
+
+**检查解压完整**：
+
+- Windows：`runtime\python.exe` 存在；
+- Linux / macOS：`runtime/bin/python3` 存在且可执行；
+- `site-packages\` 不是空目录；
+- 若出现 `server/server/` 嵌套，把内层内容上移一层。
+
+## 3. 启动 Server
+
+**Windows**
+
+双击 `start_server.bat`。需要附加参数时，在包根目录打开 `cmd`：
+
+```bat
+start_server.bat --port 9999
+```
+
+**Linux / macOS**
 
 ```shell
-uv --version
+cd ~/zotero-pdf2zh/server
+chmod +x start_server.sh
+./start_server.sh
 ```
 
-已有 conda 用户不需要迁移到 uv。默认 `env_tool=auto` 会优先沿用已经存在的 uv / conda 项目环境；只有没有旧环境时才优先新建 uv 环境。
+启动脚本会设置 `PYTHONPATH` 指向包内 `site-packages/`，并用内置 Python 运行 `server.py`。看到下列输出说明便携运行时已生效：
 
-## 4. 启动 Server
-
-普通用户直接运行：
-
-```shell
-python server.py
+```text
+📦 便携模式: 使用内置 Python 运行时
+   Python: <包目录>\runtime\python.exe
 ```
+
+::: warning 保持窗口开启
+翻译功能依赖该进程运行，使用翻译时不要关闭此窗口。
+:::
+
+## 4. 验证服务
 
 默认地址：
 
@@ -81,100 +89,85 @@ python server.py
 http://127.0.0.1:8890
 ```
 
+健康检查：
+
+```shell
+curl http://127.0.0.1:8890/health
+```
+
+返回类似 `{"status":"ok",...}`。打开 `/api/config`，`"bundled": true` 表示正在使用内置运行时。端口以启动参数 `--port` 为准（默认 8890）；本次发布验证使用 `--port 8899` 启动，插件地址需与之一致。
+
+首次冷启动到 `/health` 返回 200 约 **7.8 秒**，之后热启动约 **4 秒**。
+
 Server 默认只监听 `127.0.0.1`。只有确定需要让其他设备访问时，才显式使用：
 
 ```shell
-python server.py --host 0.0.0.0
+./start_server.sh --host 0.0.0.0
 ```
 
 ::: warning 远程访问
 使用 `--host 0.0.0.0` 会把服务暴露给当前网络中的其他设备。只有在您理解网络/防火墙设置时才这样做。
 :::
 
-## 5. 新用户第一次翻译时会发生什么？
+## 便携包说明
 
-新用户不需要预先执行 `pip install pdf2zh_next`。
+| 项目 | 数值 / 说明 |
+|---|---|
+| 下载包体积 | 约 **296MB** |
+| 解压后体积 | `site-packages/` 约 **813MB**，`runtime/` 约 **22MB** |
+| zip 条目数 | **21,244** |
+| 解压耗时 | 约 **85 秒**（通常 1~2 分钟） |
+| 首次冷启动到 `/health` 200 | 约 **7.8 秒** |
+| 二次热启动 | 约 **4 秒** |
+| 内置引擎 | `pdf2zh` fork **1.9.12** |
+| 未内置 | `pdf2zh_next` |
 
-第一次真正使用 `pdf2zh_next` 时，Server 会自动：
+- **首次真实翻译仍需联网**：便携包未预置 babeldoc 的模型/字体资产，第一次翻译会联网下载；网络受限时可能卡在下载阶段，资产缓存后可复用。
+- **`pdf2zh_next` 未内置**：需要该引擎时请使用[高级：源码运行](#source-mode)自行配置环境，或使用 [standalone exe](#standalone-exe)。
+- **平台绑定**：`runtime/` 与平台绑定。官方 Releases 的包按其构建平台使用；在 Linux/macOS 上用的包需要在对应平台构建（代码已支持 `runtime/bin/python3`，但发布包须对应平台构建，未做跨平台实跑验证）。
+- **不是 Docker 包**：Docker 部署见[Docker 部署](/zh/guide/docker) 或仓库 `docker/`、`docker2/` 目录。
 
-1. 选择环境管理器（无旧环境时优先 uv）；
-2. 测试 PyPI / USTC / TUNA / 阿里云等下载源；
-3. 找到或创建正式环境；
-4. 在当前环境中安装兼容的 `pdf2zh_next`（`>=2.9.0,<3.0.0`）及其依赖；
-5. 验证依赖和 DeepSeek V4 capability。
+## 故障排查
 
-如果安装失败，可稍后运行 `python update_packages.py` 重试。
+### `start_server.bat` 闪退
 
-## 6. 老用户升级到 v4.1.0 / v4.1.1
+1. 在该目录打开 `cmd` 执行 `start_server.bat`，查看完整报错。
+2. `[ERROR] runtime\python.exe not found.`：解压不完整或层级不对，确认 `runtime\python.exe` 与启动脚本同级。
+3. `[ERROR] server.py not found.`：当前目录不是包根目录。
+4. 完全没有输出：检查杀毒软件是否隔离了 `runtime\python.exe`。
 
-已有 uv / conda 翻译环境的用户启动新版 Server 时，会询问一次是否安全更新：
+### 端口被占用
+
+终端提示 `❌ 端口 8890 已被占用！`。换端口启动，并同步修改插件地址：
+
+```bat
+start_server.bat --port 9999
+```
+
+```shell
+./start_server.sh --port 9999
+```
+
+### 杀毒软件拦截
+
+把整个 Server 文件夹加入信任 / 白名单后重新解压；不要只恢复被隔离的单个文件。
+
+### 解压中断
+
+`runtime/` 或 `site-packages/` 可能不完整。删除目录后重新解压，不要只解压部分文件。
+
+## 5. 第一次翻译时会发生什么？
+
+便携包已经内置 `pdf2zh` 与运行依赖，无需安装 `pdf2zh_next`，也无需 `update_packages.py`。
+
+第一次真正翻译时仍需联网下载 babeldoc 的模型/字体资产；资产缓存到本机后，后续翻译复用缓存。网络受限时请先确认能访问 GitHub/相关资源服务器。
+
+## 6. 安装 Zotero 插件
+
+最新 XPI（v1.1.0）：
 
 ```text
-🔄 检测到已有 Python 翻译环境
-当前 pdf2zh_next: ...
-
-[Y] 检查并更新（推荐）
-[N] 暂不更新
-
-选择 [Y/n]:
-```
-
-建议直接回车选择 `Y`。
-
-更新采用：
-
-```text
-在当前 conda/uv 环境中直接安装
-→ 验证
-```
-
-不要再创建 staging / backup 环境。选择 `N` 后，旧环境仍可继续使用它原本支持的功能。DeepSeek V4 默认不思考，旧 runtime 可以继续翻译；如果以后手动开启思考，Server 会在 API 请求前检查 runtime 是否支持。
-
-如果以后想主动重试更新：
-
-```shell
-python update_packages.py
-```
-
-该命令会自动识别已有 uv / conda；没有已有环境时优先 uv。
-
-## 7. conda 用户
-
-如果您以前已经使用 conda，正常运行：
-
-```shell
-python server.py
-```
-
-即可让 `auto` 模式发现并沿用已有 conda 环境。
-
-如果希望强制只使用 conda：
-
-```shell
-python server.py --env_tool=conda
-python update_packages.py --env-tool conda
-```
-
-显式选择 conda 后，失败不会自动切换成 uv；显式选择 uv 同理。
-
-Windows 上 Conda 的 Python 可执行文件在环境根目录：`<conda>\\envs\\zotero-pdf2zh-next-venv\\python.exe`。uv / venv 才使用 `Scripts\\python.exe`。v4.1.1 已按此区分。
-
-## 8. 不使用托管虚拟环境（高级）
-
-只有明确知道自己在维护哪个 Python 环境时才建议：
-
-```shell
-python server.py --enable_venv=False
-```
-
-此模式下 Server 不负责升级您的系统 Python 环境。DeepSeek V4 等功能仍会检查实际 runtime capability。
-
-## 9. 安装 Zotero 插件
-
-最新 XPI：
-
-```text
-https://github.com/guaguastandup/zotero-pdf2zh/releases/latest/download/zotero-pdf-2-zh.xpi
+https://github.com/BluesilveEmperor/PDFTranslate-Zotero/releases/latest/download/zotero-pdf-2-zh.xpi
 ```
 
 安装步骤：
@@ -185,39 +178,105 @@ https://github.com/guaguastandup/zotero-pdf2zh/releases/latest/download/zotero-p
 4. 打开「工具 → PDF2zh 首选项」；
 5. Python Server IP 保持 `http://127.0.0.1:8890`（除非您自己修改过地址）。
 
-## 10. 默认启动参数
+## 7. 包更新
+
+**插件**：在 Zotero 中检查更新，或开启自动更新。
+
+**Server 便携包**：
+
+- 启动时 Server 会检查 GitHub/Gitee，发现新版本时询问；选择 `y` 会下载 Releases 的 `server.zip` 并就地同步，完成后重新启动启动脚本。
+- 也可手动下载新 `server.zip` 覆盖解压；保留 `config/pdf-cache/` 与 `translated/`。
+- 包内 `pdf2zh` 随 Server 包一起更新，不需要 `update_packages.py`、uv 或 conda。
+
+## 8. 默认启动参数
+
+启动脚本会把参数原样传给 `server.py`：
 
 | 参数 | 默认值 | 说明 |
 |---|---|---|
 | `--host` | `127.0.0.1` | 默认只允许本机访问 |
 | `--port` | `8890` | Server 端口 |
-| `--enable_venv` | `True` | 启用托管翻译环境 |
-| `--env_tool` | `auto` | 沿用已有 uv/conda；新环境优先 uv |
 | `--check_update` | `True` | 启动时检查 Server 更新 |
 | `--update_source` | `gitee` | 优先更新源；GitHub 与 Gitee 都会尝试 |
-| `--enable_mirror` | `True` | 启用 Python 包下载源优化 |
-| `--skip_install` | `False` | 是否禁止自动创建/修复翻译环境 |
+| `--enable_mirror` | `True` | 启用 Python 包下载源优化（源码 / uv / conda 模式） |
+| `--enable_venv` | `True` | 启用托管翻译环境（便携模式跳过） |
+| `--env_tool` | `auto` | 沿用已有 uv/conda；新环境优先 uv（便携模式跳过） |
+| `--skip_install` | `False` | 是否禁止自动创建/修复翻译环境（源码模式） |
 
 常见示例：
 
-```shell
-# 更换端口
-python server.py --port 9999
-
-# 强制使用 uv
-python server.py --env_tool=uv
-
-# 强制使用 conda
-python server.py --env_tool=conda
-
-# 优先用 GitHub 检查/下载 Server 更新（失败会自动试 Gitee）
-python server.py --update_source=github
-
-# 允许局域网访问（高级）
-python server.py --host 0.0.0.0
+```bat
+start_server.bat --port 9999
+start_server.bat --check_update=False
 ```
 
-## 11. Windows standalone exe（高级）
+```shell
+./start_server.sh --port 9999
+./start_server.sh --check_update=False
+./start_server.sh --host 0.0.0.0
+```
+
+## 9. 高级：源码运行（uv/conda） {#source-mode}
+
+仅用于开发 / 调试 Server、使用非便携包，或需要 `pdf2zh_next` 引擎。
+
+### 9.1 准备
+
+- **Python 3.12**：[下载链接](https://www.python.org/downloads/)
+- 获取源码：`git clone https://github.com/BluesilveEmperor/PDFTranslate-Zotero.git`，进入 `server` 目录。
+
+### 9.2 使用 uv
+
+```shell
+# macOS / Linux
+wget -qO- https://astral.sh/uv/install.sh | sh
+# Windows PowerShell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 验证
+uv --version
+
+# 启动；uv 会按 requirements.txt 准备依赖（首次联网安装）
+uv run --python 3.12 --with-requirements requirements.txt server.py
+```
+
+uv 安装后不要移动 / 重命名 `server` 文件夹（会影响环境路径）。
+
+### 9.3 使用 conda
+
+```shell
+# 验证
+conda --version
+
+# 仅首次：创建环境
+conda create -n zotero-pdf2zh-server python=3.12 -y
+conda activate zotero-pdf2zh-server
+# 仅首次：安装 Server 依赖
+pip install -r requirements.txt
+# 启动并显式指定 conda
+python server.py --env_tool=conda
+```
+
+Windows 上 Conda 的 Python 在环境根目录：`<conda>\envs\zotero-pdf2zh-server\python.exe`；uv / venv 才使用 `Scripts\python.exe`。
+
+### 9.4 不使用托管虚拟环境
+
+只有明确知道自己在维护哪个 Python 环境时才建议：
+
+```shell
+python server.py --enable_venv=False
+```
+
+此模式下 Server 不负责升级您的系统 Python 环境。
+
+### 9.5 源码模式的翻译环境
+
+- 默认 `env_tool=auto` 沿用已有 uv/conda；无旧环境时优先 uv。
+- 第一次使用 `pdf2zh_next` 时，Server 会测试下载源、创建/复用环境并安装 `pdf2zh_next >= 2.9.0,<3.0.0`。
+- 更新：在 `server` 目录运行 `python update_packages.py`；不要再手工创建 staging / backup 环境。
+- 已有 uv/conda 环境的用户启动新版 Server 时会询问一次是否更新，回车选择 `Y` 即可。
+
+## 10. Windows standalone exe（高级） {#standalone-exe}
 
 Windows 用户也可以使用 `pdf2zh_next` 上游提供的 standalone exe，并通过：
 
@@ -225,13 +284,13 @@ Windows 用户也可以使用 `pdf2zh_next` 上游提供的 standalone exe，并
 python server.py --enable_winexe=True --winexe_path="<pdf2zh.exe 路径>"
 ```
 
-standalone exe 的版本需要自行维护。DeepSeek V4 默认不思考时旧 exe 仍可翻译；只有手动开启思考时才会检查 exe 是否支持。
+standalone exe 的版本需要自行维护。该方式仍需本机 Python 来运行 `server.py`。
 
 ## 注意事项
 
-- 翻译期间需要保持 `server.py` 运行。
-- 不要手工使用 `--no-deps` 强装 BabelDOC / PyMuPDF / pdf2zh_next。
-- 新版翻译环境更新请优先使用 Server 启动提示或 `python update_packages.py`。
+- 翻译期间需要保持 Server 进程运行（便携包：不要关闭启动脚本窗口）。
+- 不要把 `runtime/` 或 `site-packages/` 单独移出包目录。
+- 源码模式下不要手工使用 `--no-deps` 强装 BabelDOC / PyMuPDF / pdf2zh_next。
 - 个别结构异常 PDF 仍可能触发上游 BabelDOC / PyMuPDF 解析问题；本项目不会默认重写或栅格化所有用户 PDF。
 
 ## 下一步

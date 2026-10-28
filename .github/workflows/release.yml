@@ -11,7 +11,272 @@ permissions:
   pull-requests: write
 
 jobs:
+  # 便携版 Server 包：Windows embeddable Python 运行时 + 全部依赖（含 pdf2zh
+  # fork），解压即用。产物根目录就是 server/ 的内容（server.py、utils/、
+  # config/、runtime/、site-packages/、start_server.bat/sh）。
+  #
+  # 必须在 windows-latest 上构建：runtime/ 里是 python.exe，无法在 Linux
+  # 上交叉产出；脚本使用 git-bash 语法，Windows runner 自带 Git Bash。
+  build-server-portable:
+    runs-on: windows-latest
+    # 首次构建要联网下载 Python embeddable 与大量依赖（pdf2zh fork 走
+    # gh-proxy 代理），给足超时，避免网络抖动导致 Release 缺资产。
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        # 构建脚本内部会下载 embeddable Python；这里的 Python 用于
+        # zip 注入/结构校验步骤（Windows runner 自带，显式固定版本更稳）。
+        # 必须为 3.12：site-packages 里的二进制扩展要与 runtime 的 3.12.9 ABI 一致。
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv (optional accelerator)
+        # 构建脚本优先用 `uv pip install --target`；安装失败时脚本会回退
+        # `python -m pip install --target`，因此这一步允许失败。
+        continue-on-error: true
+        run: python -m pip install --upgrade uv
+
+      - name: Check portable build script
+        # 便携构建脚本缺失时尽早失败，避免发布一个不含运行时的包。
+        run: |
+          test -f server/build_portable.sh
+
+      - name: Build portable server bundle
+        # 脚本内部联网下载 Python embeddable 与 site-packages 依赖，
+        # 产物固定为 server/dist/server.zip。
+        run: bash server/build_portable.sh
+
+      - name: Inject BitStream sitecustomize and site-packages path
+        # 便携运行时的两个必要修正（幂等，脚本已处理时不会重复写入）：
+        # 1) runtime/python*._pth 追加 `..\site-packages` 与 `import site`，
+        #    embeddable Python 默认不会把同级 site-packages 加入 sys.path；
+        # 2) site-packages/sitecustomize.py 注入 bitstring 兼容层
+        #    （bitstring>=4.1 移除了 BitStream，部分依赖仍用旧 API）。
+        run: |
+          python - <<'PY'
+          import os
+          import zipfile
+          from pathlib import Path
+
+          zip_path = Path('server/dist/server.zip')
+          if not zip_path.is_file():
+              raise SystemExit(f'缺少便携构建产物: {zip_path}')
+
+          bitstream_snippet = '''\
+          # >>> pdf2zh portable runtime (BitStream compat) >>>
+          # bitstring>=4.1 移除了 BitStream，为仍使用旧 API 的依赖补别名。
+          try:
+              from bitstring import BitStream as _BitStream  # noqa: F401
+          except ImportError:
+              try:
+                  import bitstring as _bitstring
+                  from bitstring import BitArray as _BitArray
+                  _bitstring.BitStream = _BitArray
+              except ImportError:
+                  pass
+          # <<< pdf2zh portable runtime (BitStream compat) <<<
+          '''
+          path_marker = '# >>> pdf2zh portable runtime (site path) >>>'
+          path_snippet = '''\
+          # >>> pdf2zh portable runtime (site path) >>>
+          # 把 site-packages 与程序根显式加入 sys.path，防御 ._pth 被覆盖。
+          import os as _os
+          import sys as _sys
+
+          _here = _os.path.dirname(_os.path.abspath(__file__))
+          _root = _os.path.dirname(_here)
+          if _here not in _sys.path:
+              _sys.path.insert(0, _here)
+          if _root not in _sys.path:
+              _sys.path.append(_root)
+          # <<< pdf2zh portable runtime (site path) <<<
+          '''
+
+          # 兼容 `zip -r .` 生成的 `./` 前缀条目
+          def normalize(name):
+              while name.startswith('./'):
+                  name = name[2:]
+              return name
+
+          # 补上 embeddable Python 的 site-packages 路径与 site 启动
+          def patch_pth(text):
+              newline = '\r\n' if '\r\n' in text else '\n'
+              if text and not text.endswith(('\n', '\r')):
+                  text += newline
+              lines = text.splitlines(keepends=True)
+              stripped = [line.strip() for line in lines]
+              paths = [line.replace('/', '\\').rstrip('\\') for line in stripped]
+              has_site_packages = any(
+                  line in ('..\\site-packages', 'site-packages', 'Lib\\site-packages')
+                  for line in paths
+              )
+              has_import_site = any(line == 'import site' for line in stripped)
+              if not has_site_packages:
+                  lines.append('..\\site-packages' + newline)
+              if not has_import_site:
+                  lines.append('import site' + newline)
+              return ''.join(lines)
+
+          # 已有 sitecustomize 时只追加缺失片段，保留构建脚本的 BitStream 段
+          def merge_sitecustomize(text):
+              additions = []
+              if 'BitStream' not in text:
+                  additions.append(bitstream_snippet)
+              if path_marker not in text:
+                  additions.append(path_snippet)
+              if not additions:
+                  return text
+              return text.rstrip() + '\n\n' + '\n\n'.join(additions)
+
+          with zipfile.ZipFile(zip_path) as src:
+              names = [info.filename for info in src.infolist()]
+              normalized = {normalize(name): name for name in names}
+              dotted = any(name != normalize(name) for name in names)
+              pth_names = [
+                  name
+                  for name in names
+                  if normalize(name).startswith('runtime/')
+                  and normalize(name).endswith('._pth')
+              ]
+              if not pth_names:
+                  raise SystemExit('便携包缺少 runtime/python*._pth，无法注入 site-packages 路径')
+
+          tmp_path = zip_path.with_name(zip_path.name + '.tmp')
+          if tmp_path.exists():
+              tmp_path.unlink()
+          try:
+              with zipfile.ZipFile(zip_path) as src, zipfile.ZipFile(
+                  tmp_path, 'w'
+              ) as dst:
+                  for info in src.infolist():
+                      data = src.read(info)
+                      if info.filename in pth_names:
+                          text = data.decode('utf-8', errors='replace')
+                          patched = patch_pth(text)
+                          if patched != text:
+                              print(f'inject site-packages path: {info.filename}')
+                              data = patched.encode('utf-8')
+                      elif normalize(info.filename) == 'site-packages/sitecustomize.py':
+                          text = data.decode('utf-8', errors='replace')
+                          merged = merge_sitecustomize(text)
+                          if merged != text:
+                              print('merge sitecustomize: site-packages/sitecustomize.py')
+                              data = merged.encode('utf-8')
+                      dst.writestr(info, data)
+
+                  if 'site-packages/sitecustomize.py' not in normalized:
+                      print('add sitecustomize: site-packages/sitecustomize.py')
+                      entry_name = 'site-packages/sitecustomize.py'
+                      if dotted:
+                          entry_name = './' + entry_name
+                      info = zipfile.ZipInfo(entry_name)
+                      info.compress_type = zipfile.ZIP_DEFLATED
+                      info.external_attr = 0o644 << 16
+                      dst.writestr(info, bitstream_snippet + '\n' + path_snippet)
+              os.replace(tmp_path, zip_path)
+          finally:
+              if tmp_path.exists():
+                  tmp_path.unlink()
+          print('portable runtime injection OK')
+          PY
+
+      - name: Verify portable bundle layout
+        # 断言便携包真实结构：根即 server 内容（没有 server/ 前缀），
+        # runtime 有 python.exe，site-packages 有 flask 与 pdf2zh。
+        run: |
+          python - <<'PY'
+          import re
+          import zipfile
+          from pathlib import Path
+
+          zip_path = Path('server/dist/server.zip')
+          if not zip_path.is_file():
+              raise SystemExit(f'缺少便携构建产物: {zip_path}')
+
+          # 兼容 `zip -r .` 生成的 `./` 前缀条目
+          def normalize(name):
+              while name.startswith('./'):
+                  name = name[2:]
+              return name
+
+          with zipfile.ZipFile(zip_path) as zf:
+              raw_names = zf.namelist()
+              names = [normalize(name) for name in raw_names]
+              raw_by_name = dict(zip(names, raw_names))
+              pth_names = sorted(
+                  name
+                  for name in names
+                  if name.startswith('runtime/') and name.endswith('._pth')
+              )
+              if not pth_names:
+                  raise SystemExit('便携包缺少 runtime/python*._pth')
+              pth_text = zf.read(raw_by_name[pth_names[0]]).decode('utf-8', errors='replace')
+              sitecustomize = zf.read(raw_by_name['site-packages/sitecustomize.py']).decode(
+                  'utf-8', errors='replace'
+              )
+              size_mb = zip_path.stat().st_size / (1024 * 1024)
+
+          def has_dir(prefix):
+              return any(name.startswith(prefix + '/') for name in names)
+
+          required_files = (
+              'server.py',
+              'config/config.toml.example',
+              'update_packages.py',
+              'utils/deepseek_thinking.py',
+              'start_server.bat',
+              'start_server.sh',
+          )
+          missing = [name for name in required_files if name not in names]
+          if missing:
+              raise SystemExit(f'便携包缺少文件: {missing}')
+          if not has_dir('runtime'):
+              raise SystemExit('便携包缺少 runtime/ 目录')
+          if not any(
+              name.startswith('runtime/') and re.search(r'python[0-9.]*\.exe$', name)
+              for name in names
+          ):
+              raise SystemExit('便携包缺少 runtime/python*.exe')
+          if not has_dir('site-packages/flask'):
+              raise SystemExit('便携包缺少 site-packages/flask')
+          if has_dir('site-packages/pdf2zh'):
+              # fork 版没有 pdf2zh/__main__.py，构建脚本会补；`-m pdf2zh` 依赖它。
+              if 'site-packages/pdf2zh/__main__.py' not in names:
+                  raise SystemExit('便携包缺少 site-packages/pdf2zh/__main__.py')
+          elif not has_dir('site-packages/pdf2zh_next'):
+              raise SystemExit('便携包缺少 site-packages/pdf2zh(fork)')
+          if any(name.startswith('server/') for name in names):
+              raise SystemExit('便携包根不应有 server/ 前缀')
+          normalized_pth = pth_text.replace('/', '\\')
+          if 'site-packages' not in normalized_pth or 'import site' not in pth_text:
+              raise SystemExit('runtime/python*._pth 未注入 site-packages 与 import site')
+          if 'BitStream' not in sitecustomize:
+              raise SystemExit('site-packages/sitecustomize.py 缺少 BitStream 兼容层')
+          print(f'portable bundle layout OK ({size_mb:.1f} MB)')
+          PY
+
+      - name: Upload portable server bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-portable
+          path: server/dist/server.zip
+          if-no-files-found: error
+
   release:
+    # 便携包构建成功后才创建 Release，避免发布缺少 Server 资产的版本。
+    needs: build-server-portable
     runs-on: ubuntu-latest
     env:
       # GITHUB_TOKEN 在本仓库创建 Release 会被 403 拒绝，优先使用仓库 secret
@@ -54,6 +319,12 @@ jobs:
           python -m pip install toml packaging flask pypdf pymupdf
           python -m compileall -q server
 
+      - name: Download portable server bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: server-portable
+          path: dist
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -76,33 +347,10 @@ jobs:
       # Build and validate every artifact before creating/updating the GitHub
       # Release. This prevents a failed Server packaging step from leaving a
       # release that contains only the plugin artifact.
-      - name: Build server.zip from tagged source
-        run: |
-          rm -f server.zip
-          zip -r server.zip server \
-            -x 'server/translated/*' \
-            -x 'server/config/pdf-cache/*' \
-            -x 'server/zotero-pdf2zh-venv/*' \
-            -x 'server/zotero-pdf2zh-next-venv/*' \
-            -x 'server/zotero-pdf2zh-venv.staging/*' \
-            -x 'server/zotero-pdf2zh-next-venv.staging/*' \
-            -x 'server/zotero-pdf2zh-venv.backup/*' \
-            -x 'server/zotero-pdf2zh-next-venv.backup/*' \
-            -x 'server/config/config.json' \
-            -x 'server/config/config.toml' \
-            -x 'server/config/venv.json' \
-            -x 'server/config/package_update_state.json' \
-            -x 'server/config/*.invalid.bak' \
-            -x 'server/config/*.invalid.*.bak' \
-            -x 'server/__pycache__/*' \
-            -x 'server/*/__pycache__/*' \
-            -x 'server/**/*.pyc' \
-            -x '.DS_Store'
-          unzip -l server.zip | head -80
-          unzip -l server.zip | grep -q 'server/server.py'
-          unzip -l server.zip | grep -q 'server/config/config.toml.example'
-          unzip -l server.zip | grep -q 'server/update_packages.py'
-          unzip -l server.zip | grep -q 'server/utils/deepseek_thinking.py'
+      - name: Stage portable bundle for artifact upload
+        # release-assets 这一历史兜底 artifact 仍以 server.zip 为根文件名，
+        # 这里复制一份，保持 release-assets.yml 的路径约定可用。
+        run: cp dist/server.zip server.zip
 
       - name: Upload build artifacts
         # 即使后续 GitHub Release 创建失败（GITHUB_TOKEN 403），构建产物也可下载。
@@ -120,9 +368,13 @@ jobs:
           sleep 1s
 
       - name: Upload canonical Release assets
+        # 显式带 --repo，保证非 checkout 工作区内也能定位仓库；
+        # server.zip 来自 Windows 便携构建 job 的 artifact。
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} plugin/build/zotero-pdf-2-zh.xpi --clobber
-          gh release upload ${{ github.ref_name }} server.zip --clobber
+          gh release upload ${{ github.ref_name }} plugin/build/zotero-pdf-2-zh.xpi --clobber --repo ${{ github.repository }}
+          gh release upload ${{ github.ref_name }} dist/server.zip --clobber --repo ${{ github.repository }}
 
       - name: Notify release
         uses: apexskier/github-release-commenter@v1

@@ -35,3 +35,6 @@ LOG.md
 _debug_progress.log
 
 server/dev/
+
+# 便携包构建产物（runtime / site-packages / server.zip），不入库
+server/dist/

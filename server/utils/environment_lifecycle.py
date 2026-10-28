@@ -11,7 +11,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Iterable
 
+from utils.app_paths import bundled_python
+from utils.app_paths import bundled_site_packages
 from utils.app_paths import cache_dir
+from utils.app_paths import install_root
 from utils.package_network import print_probe_report
 from utils.package_network import probe_indexes
 from utils.package_network import usable_indexes
@@ -96,11 +99,31 @@ PDF2ZH_PYPI_FALLBACK_SPEC = "pdf2zh==1.9.12"
 # 迁移，因此「长期回退到直连 / PyPI」需要通过该变量表达，而不是只改配置文件。
 PDF2ZH_SPEC_ENV = "PDF2ZH_PDF2ZH_SPEC"
 
+# 便携运行时标记：值指向随包内置的 site-packages。子进程环境经
+# managed_python_env() 二次清洗（execute_with_progress 会这样做）时，
+# 只要该标记存在就保留 PYTHONPATH，避免内置依赖被隔离掉。
+ENV_BUNDLED_SITE_PACKAGES = "PDF2ZH_BUNDLED_SITE_PACKAGES"
+
 # 实测（gh-proxy，主仓库约 132 MB + 子模块约 65 MB）：首次 dry-run 预检约
 # 795s；正式安装还要再次克隆并构建依赖。这里给出有限但足够的超时，不做无
 # 上限等待，失败时仍会进入中文回退提示。
 PDF2ZH_GIT_PREFLIGHT_TIMEOUT = 900
 PDF2ZH_GIT_INSTALL_TIMEOUT = 1800
+
+
+def is_bundled_python(python_path: Path | str | None) -> bool:
+    """判断给定解释器是否就是便携包内置的 Python。
+
+    便携判定固定基于 :func:`utils.app_paths.install_root`（``server.py`` 所在
+    目录），与运行期配置目录 ``PDF2ZH_HOME`` 无关。
+    """
+    runtime_python = bundled_python()
+    if runtime_python is None or not python_path:
+        return False
+    try:
+        return Path(python_path).resolve() == runtime_python.resolve()
+    except OSError:
+        return False
 
 
 def managed_python_env(
@@ -113,12 +136,59 @@ def managed_python_env(
     pure-Python files from the system installation while loading compiled
     extensions from somewhere else. Keep every unrelated variable (PATH,
     proxies, CUDA settings, credentials, and terminal settings) unchanged.
+
+    便携运行时是唯一例外：存在 :data:`ENV_BUNDLED_SITE_PACKAGES` 标记时保留
+    调用方已构造好的 ``PYTHONPATH``。``execute_with_progress`` 会对虚拟环境
+    返回的环境再调用一次本函数，若不保留，内置 site-packages 会被清掉。
     """
     env = dict(os.environ if source is None else source)
+    bundled = bool(env.get(ENV_BUNDLED_SITE_PACKAGES))
     blocked = {"PYTHONHOME", "PYTHONPATH", "PYTHONNOUSERSITE"}
     for key in tuple(env):
-        if key.upper() in blocked:
+        if key.upper() not in blocked:
+            continue
+        if bundled and key.upper() == "PYTHONPATH":
+            continue
+        env.pop(key, None)
+    env["PYTHONNOUSERSITE"] = "1"
+    return env
+
+
+def bundled_python_env(
+    site_packages: str | os.PathLike[str] | None = None,
+    source: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """便携运行时的子进程环境：注入内置 site-packages，保留用户现有配置。
+
+    内置 Python 是独立发行版（非 venv），依赖只存在于
+    ``<install_root>/site-packages``，因此必须通过 ``PYTHONPATH`` 显式注入。
+    用户原有的 ``PYTHONPATH`` 追加在后面（不覆盖用户值）；``PYTHONHOME`` 仍
+    会移除，避免把内置解释器指到别的标准库。
+
+    Args:
+        site_packages: 内置依赖目录，默认取 :func:`bundled_site_packages`。
+        source: 基础环境，默认 ``os.environ``。
+
+    Returns:
+        带有 ``PYTHONPATH`` / :data:`ENV_BUNDLED_SITE_PACKAGES` 标记的新环境。
+        未找到内置 site-packages 时退化为普通隔离环境（仅保留其它变量）。
+    """
+    target = Path(site_packages) if site_packages is not None else bundled_site_packages()
+    if target is None:
+        # 便携包缺少 site-packages：仍按隔离环境运行，由调用方打印告警。
+        return managed_python_env(source)
+
+    env = dict(os.environ if source is None else source)
+    original = next(
+        (value for key, value in env.items() if key.upper() == "PYTHONPATH"),
+        "",
+    )
+    for key in tuple(env):
+        if key.upper() in {"PYTHONHOME", "PYTHONPATH", "PYTHONNOUSERSITE"}:
             env.pop(key, None)
+    site = str(target)
+    env[ENV_BUNDLED_SITE_PACKAGES] = site
+    env["PYTHONPATH"] = os.pathsep.join([site, original] if original else [site])
     env["PYTHONNOUSERSITE"] = "1"
     return env
 
@@ -525,6 +595,10 @@ def find_existing_environment(
     engine: str,
     env_tool: str = "auto",
 ) -> tuple[str, Path, Path] | None:
+    # 便携包自带解释器与依赖：直接返回内置运行时，不探测 uv/conda。
+    runtime_python = bundled_python()
+    if runtime_python is not None:
+        return "bundled", install_root(), runtime_python
     env_name = ENGINE_ENV_NAMES[engine]
     if env_tool in {"auto", "uv"}:
         env_dir = SERVER_ROOT / env_name
@@ -550,11 +624,19 @@ def read_versions(python_path: Path, engine: str) -> dict[str, str | None]:
         "    except PackageNotFoundError: out[name]=None\n"
         "print(json.dumps(out))"
     )
+    if is_bundled_python(python_path):
+        # 内置依赖在 site-packages，``-I`` 会忽略 PYTHONPATH，因此不加隔离参数。
+        command = [str(python_path), "-c", code]
+        env = bundled_python_env()
+    else:
+        command = [str(python_path), "-I", "-c", code]
+        env = managed_python_env()
     result = subprocess.run(
-        [str(python_path), "-I", "-c", code],
+        command,
+        cwd=SERVER_ROOT,
         capture_output=True,
         text=True,
-        env=managed_python_env(),
+        env=env,
         timeout=60,
     )
     if result.returncode != 0:
@@ -613,11 +695,17 @@ def runtime_supports_deepseek_thinking(
         "print(json.dumps(out))"
     )
     try:
-        runtime_env = (
-            managed_python_env(env)
-            if isolated
-            else dict(os.environ if env is None else env)
-        )
+        bundled = is_bundled_python(python_path)
+        if bundled:
+            # 便携模式必须保留 PYTHONPATH，且不能加 -I（-I 会忽略 PYTHONPATH）。
+            isolated = False
+            runtime_env = bundled_python_env(None, env)
+        else:
+            runtime_env = (
+                managed_python_env(env)
+                if isolated
+                else dict(os.environ if env is None else env)
+            )
         command = [str(python_path)]
         if isolated:
             command.append("-I")
@@ -974,6 +1062,10 @@ def managed_runtime_health(
     heavyweight pdf2zh_next CLI startup and import only its small critical
     native dependency chain.
     """
+    if is_bundled_python(python_path):
+        # 便携包依赖位于 site-packages（不在内置解释器 prefix 内），
+        # 「包必须来自 sys.prefix」的检查不适用；由发布包保证依赖完整性。
+        return True, "ok"
     if engine != "pdf2zh_next":
         return True, "ok"
 
@@ -1024,6 +1116,10 @@ def validate_environment(
     *,
     require_deepseek_thinking: bool = False,
 ) -> bool:
+    if is_bundled_python(python_path):
+        # 便携包依赖已随包校验过；不要探测 uv/conda，也不要启动子进程。
+        print("📦 便携模式: 使用内置 Python 运行时，跳过依赖完整性校验。")
+        return True
     try:
         code = (
             "from packaging.requirements import Requirement; "
@@ -1099,6 +1195,12 @@ def transactional_install_or_update(
 ) -> tuple[bool, str | None, Path | None]:
     if engine not in ENGINE_ENV_NAMES:
         raise ValueError(f"Unknown engine: {engine}")
+    if bundled_python() is not None:
+        # 便携包自包含：不存在可安装的 uv/conda 环境，直接返回健康。
+        print("📦 便携模式: 依赖已随包内置，跳过 uv/conda 安装。")
+        if bundled_site_packages() is None:
+            print("⚠️ 便携包缺少 site-packages/，翻译可能因缺少依赖而失败。")
+        return True, "bundled", install_root()
     existing = find_existing_environment(engine, env_tool)
     selected_tool = existing[0] if existing else None
     if selected_tool is None:
@@ -1240,6 +1342,9 @@ def maybe_prompt_existing_user_update(
     config_path: str | os.PathLike[str] | None = None,
     preferred_index: str | None = None,
 ) -> None:
+    if bundled_python() is not None:
+        # 便携运行时随包更新，不存在「用户已有 uv/conda 环境」需要升级。
+        return
     if not sys.stdin or not sys.stdin.isatty() or _server_cli_bool("enable_winexe"):
         return
     existing = find_existing_environment("pdf2zh_next", env_tool)

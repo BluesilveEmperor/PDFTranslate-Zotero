@@ -205,6 +205,10 @@ def perform_update_optimized(root_path, local_version, expected_version=None, up
         # 运行期配置（config.json / config.toml / venv.json）与状态缓存，
         # 由用户本地维护，绝不参与源码同步、备份或统计。
         "pdf-cache",
+        # 便携包自带的运行时与依赖（数百 MB）；更新时整体替换会极慢，
+        # 应下载完整 server.zip 覆盖，不参与逐文件同步/备份/统计。
+        "runtime",
+        "site-packages",
         "zotero-pdf2zh-next-venv",
         "zotero-pdf2zh-venv",
         "zotero-pdf2zh-next-venv.staging",
