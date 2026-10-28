@@ -71,7 +71,8 @@ class ManagedEnvironmentIsolationTest(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertIs(calls[0][1]["force_reinstall"], True)
 
-    def test_reinstall_flags_are_manager_specific(self):
+    @patch("utils.environment_lifecycle.shutil.which", return_value="/usr/bin/uv")
+    def test_reinstall_flags_are_manager_specific(self, _which):
         uv = _build_install_command(
             "uv",
             Path("python"),

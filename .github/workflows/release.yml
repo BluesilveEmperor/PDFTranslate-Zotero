@@ -14,7 +14,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # GITHUB_TOKEN 在本仓库创建 Release 会被 403 拒绝，优先使用仓库 secret
+      GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,6 +103,16 @@ jobs:
           unzip -l server.zip | grep -q 'server/config/config.toml.example'
           unzip -l server.zip | grep -q 'server/update_packages.py'
           unzip -l server.zip | grep -q 'server/utils/deepseek_thinking.py'
+
+      - name: Upload build artifacts
+        # 即使后续 GitHub Release 创建失败（GITHUB_TOKEN 403），构建产物也可下载。
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            plugin/build/zotero-pdf-2-zh.xpi
+            server.zip
+          if-no-files-found: error
 
       - name: Release plugin to GitHub
         run: |

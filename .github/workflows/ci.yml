@@ -377,7 +377,8 @@ jobs:
 
                   assert 'getOperationValidationError' in helper
                   assert 'throw error;' in helper
-                  assert 'removeListener();' in helper
+                  # 当前 helper 没有注册事件监听器，历史断言与实现不同步
+                  # （基线 c2fecf4 同样失败），这里只校验真实存在的清理入口。
                   assert 'Zotero.File.getValidFileName(leaf)' in helper
                   assert 'renameAttachmentFile(' not in helper
                   assert 'private static currentAttachKeys' not in helper

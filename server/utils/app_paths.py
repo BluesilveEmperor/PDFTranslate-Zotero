@@ -95,6 +95,11 @@ def cache_dir() -> Path:
     return target
 
 
+def _is_windows() -> bool:
+    """当前平台是否为 Windows（抽成函数便于测试替换，避免测试改动 os.name）。"""
+    return os.name == "nt"
+
+
 def ensure_hidden(path: str | os.PathLike[str]) -> None:
     """尽力把 ``path``（文件或目录）标记为隐藏，失败静默忽略。
 
@@ -109,7 +114,7 @@ def ensure_hidden(path: str | os.PathLike[str]) -> None:
         target = Path(path)
         if not target.exists():
             return
-        if os.name != "nt":
+        if not _is_windows():
             return
 
         import ctypes

@@ -154,7 +154,7 @@ class EnsureHiddenTests(unittest.TestCase):
 
     def test_disabled_on_non_windows_platforms(self):
         fake, kernel32 = self._fake_ctypes(0x20)
-        with patch.object(app_paths.os, "name", "posix"), patch.dict(
+        with patch.object(app_paths, "_is_windows", return_value=False), patch.dict(
             sys.modules, {"ctypes": fake}
         ):
             ensure_hidden(self.file)
@@ -164,7 +164,7 @@ class EnsureHiddenTests(unittest.TestCase):
 
     def test_adds_hidden_bit_without_dropping_existing_attributes(self):
         fake, kernel32 = self._fake_ctypes(0x20)
-        with patch.object(app_paths.os, "name", "nt"), patch.dict(
+        with patch.object(app_paths, "_is_windows", return_value=True), patch.dict(
             sys.modules, {"ctypes": fake}
         ):
             ensure_hidden(self.file)
@@ -173,7 +173,7 @@ class EnsureHiddenTests(unittest.TestCase):
 
     def test_skips_file_already_marked_hidden(self):
         fake, kernel32 = self._fake_ctypes(0x22)
-        with patch.object(app_paths.os, "name", "nt"), patch.dict(
+        with patch.object(app_paths, "_is_windows", return_value=True), patch.dict(
             sys.modules, {"ctypes": fake}
         ):
             ensure_hidden(self.file)
@@ -182,7 +182,7 @@ class EnsureHiddenTests(unittest.TestCase):
 
     def test_skips_path_whose_attributes_cannot_be_read(self):
         fake, kernel32 = self._fake_ctypes(0xFFFFFFFF)
-        with patch.object(app_paths.os, "name", "nt"), patch.dict(
+        with patch.object(app_paths, "_is_windows", return_value=True), patch.dict(
             sys.modules, {"ctypes": fake}
         ):
             ensure_hidden(self.file)
@@ -191,7 +191,7 @@ class EnsureHiddenTests(unittest.TestCase):
 
     def test_missing_path_is_a_noop(self):
         fake, kernel32 = self._fake_ctypes(0x20)
-        with patch.object(app_paths.os, "name", "nt"), patch.dict(
+        with patch.object(app_paths, "_is_windows", return_value=True), patch.dict(
             sys.modules, {"ctypes": fake}
         ):
             ensure_hidden(Path(self._temp_dir) / "does-not-exist.json")
@@ -201,7 +201,7 @@ class EnsureHiddenTests(unittest.TestCase):
     def test_native_failure_never_propagates(self):
         fake, kernel32 = self._fake_ctypes(0x20)
         kernel32.GetFileAttributesW.side_effect = OSError("kernel32 unavailable")
-        with patch.object(app_paths.os, "name", "nt"), patch.dict(
+        with patch.object(app_paths, "_is_windows", return_value=True), patch.dict(
             sys.modules, {"ctypes": fake}
         ), self.assertLogs("utils.app_paths", level="DEBUG") as logs:
             ensure_hidden(self.file)
