@@ -44,6 +44,11 @@ def _make_bundle(root: Path, *, windows: bool = True, with_site: bool = True):
     runtime.mkdir(parents=True)
     if windows:
         python = runtime / "python.exe"
+        # 同时准备 Unix 路径：部分用例不 patch `_is_windows`，需要在
+        # Linux runner 上也能探测到内置 Python（跨平台测试）。
+        unix_python = runtime / "bin" / "python3"
+        unix_python.parent.mkdir(parents=True, exist_ok=True)
+        unix_python.write_bytes(b"")
     else:
         python = runtime / "bin" / "python3"
         python.parent.mkdir(parents=True)
