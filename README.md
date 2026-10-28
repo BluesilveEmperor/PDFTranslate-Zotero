@@ -349,7 +349,7 @@ Windows Defender、360 等可能把包内 `runtime\python.exe` 或 `site-package
 - 实时显示当前翻译任务状态
 - 查看翻译历史记录，支持预览和下载翻译后的文件
 
-> 📢: v4.0.3(3月7日) windows端暂时不支持多进度条显示(多个pdf同时翻译时只会有一个进度条会更新，是bug待修复)
+> 📢: Windows 端多进度条显示存在已知限制：多个 PDF 同时翻译时可能只有一个进度条更新。该问题尚未在本版本修复。
 
 **翻译引擎对比**
 
@@ -598,11 +598,11 @@ python server.py --env_tool=conda --enable_venv=False
 #### 手动安装依赖（如果只需要特定引擎）
 
 ```shell
-# 如果只使用 pdf2zh:
-pip install pdf2zh==1.9.11 numpy==2.2.0
+# 如果只使用 pdf2zh（与便携包内置的 fork 1.9.12 同源，版本约束见 config/venv.json.example）
+pip install "pdf2zh @ git+https://gh-proxy.com/https://github.com/BluesilveEmperor/PDFtranslate.git@main" numpy==2.2.0
 
-# 如果只使用 pdf2zh_next:
-pip install pdf2zh_next
+# 如果只使用 pdf2zh_next（范围与 venv.json.example 一致）
+pip install "pdf2zh_next>=2.9.0,<3.0.0"
 ```
 
 ### 一键启动脚本

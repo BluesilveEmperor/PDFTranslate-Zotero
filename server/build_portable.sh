@@ -419,7 +419,7 @@ verify_stage_windows() {
     [ -f "$py" ] || die "runtime 缺少 python.exe"
 
     ( cd "$STAGE_DIR" && \
-      PYTHONPATH="$SITE_DIR;$STAGE_DIR" "$py" -c '
+      PYTHONPATH="$SITE_DIR;$STAGE_DIR" "$py" -B -c '
 import sys
 import flask
 import fitz
@@ -432,7 +432,7 @@ print("    flask:", flask.__version__ if hasattr(flask, "__version__") else "ok"
 print("    PyMuPDF:", fitz.__doc__.splitlines()[0] if fitz.__doc__ else "ok")
 print("    pdf2zh:", pdf2zh.__file__)
 ' )
-    ( cd "$STAGE_DIR" && PYTHONPATH="$SITE_DIR;$STAGE_DIR" "$py" -m pdf2zh --version ) \
+    ( cd "$STAGE_DIR" && PYTHONPATH="$SITE_DIR;$STAGE_DIR" "$py" -B -m pdf2zh --version ) \
         || die "runtime python -m pdf2zh --version 失败"
 }
 
@@ -441,11 +441,11 @@ verify_stage_unix() {
     log "verify" "用便携 runtime 校验关键依赖"
     [ -x "$py" ] || die "runtime 缺少 bin/python3"
     ( cd "$STAGE_DIR" && \
-      PYTHONPATH="$SITE_DIR:$STAGE_DIR" "$py" -c '
+      PYTHONPATH="$SITE_DIR:$STAGE_DIR" "$py" -B -c '
 import flask, fitz, pdf2zh, pypdf, toml, packaging
 print("pdf2zh:", pdf2zh.__file__)
 ' )
-    ( cd "$STAGE_DIR" && PYTHONPATH="$SITE_DIR:$STAGE_DIR" "$py" -m pdf2zh --version ) \
+    ( cd "$STAGE_DIR" && PYTHONPATH="$SITE_DIR:$STAGE_DIR" "$py" -B -m pdf2zh --version ) \
         || die "runtime python -m pdf2zh --version 失败"
 }
 
@@ -470,6 +470,10 @@ compile_bytecode_unix() {
 # ---------------------------------------------------------------------------
 package_zip() {
     log "zip" "打包 $ZIP_PATH"
+    # 清理 .pyc：其中记录构建机绝对路径，不应进入发布包
+    find "$STAGE_DIR/site-packages" "$STAGE_DIR/utils" "$STAGE_DIR/tests" \
+        -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
+    find "$STAGE_DIR" -name '*.pyc' -type f -delete 2>/dev/null || true
     rm -f "$ZIP_PATH"
     if command -v zip >/dev/null 2>&1; then
         ( cd "$STAGE_DIR" && zip -q -r "$ZIP_PATH" . )
