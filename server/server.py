@@ -1,4 +1,4 @@
-## server.py v4.1.7
+## server.py v1.0.0
 # guaguastandup
 # zotero-pdf2zh
 import os
