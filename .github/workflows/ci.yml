@@ -234,7 +234,15 @@ jobs:
                   assert '下载内容不是 zip' in updater
 
                   sys.path.insert(0, 'server')
-                  from utils.auto_update import _looks_like_zip, _server_download_urls, _notice_applies, _notice_urls, _select_notices
+                  from utils.auto_update import (
+                      OWNER,
+                      REPO,
+                      _looks_like_zip,
+                      _server_download_urls,
+                      _notice_applies,
+                      _notice_urls,
+                      _select_notices,
+                  )
                   from utils.deepseek_thinking import (
                       resolved_thinking_mode,
                       thinking_runtime_policy,
@@ -276,7 +284,7 @@ jobs:
                   assert any(group.get('status') == 'open' and group.get('id') for group in notice['community'].get('qq_groups', []))
                   gitee_notice, github_notice = _notice_urls('gitee')
                   assert gitee_notice.endswith('/raw/main/server/notice.json')
-                  assert github_notice == 'https://raw.githubusercontent.com/guaguastandup/zotero-pdf2zh/main/server/notice.json'
+                  assert github_notice == f'https://raw.githubusercontent.com/{OWNER}/{REPO}/main/server/notice.json'
                   assert _notice_applies({'enabled': False, 'affects': ['4.1.2']}, '4.1.2') is False
                   assert _notice_applies({'affects': ['4.1.0']}, '4.1.2') is False
                   assert _notice_applies({'affects': ['4.1.0']}, '4.1.0') is True
