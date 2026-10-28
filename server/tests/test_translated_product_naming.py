@@ -74,7 +74,8 @@ class NamingTests(unittest.TestCase):
 
     def test_semantic_stem_drops_extension_and_prefix(self):
         self.assertEqual(
-            semantic_stem(r"C:\translated\Traned_double_paper.pdf"), "paper"
+            semantic_stem(os.path.join("translated", "Traned_double_paper.pdf")),
+            "paper",
         )
         self.assertEqual(semantic_stem("Traned_single_cut_课程 2024.pdf"), "课程 2024")
         self.assertEqual(semantic_stem("paper.PDF"), "paper")
@@ -182,7 +183,7 @@ class GetFileTypeTests(unittest.TestCase):
     def test_works_with_absolute_paths(self):
         self.assertEqual(
             self.translator.get_filetype(
-                r"C:\translated\Traned_single_cut_paper.pdf"
+                os.path.join("translated", "Traned_single_cut_paper.pdf")
             ),
             "mono-cut",
         )

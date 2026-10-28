@@ -1,0 +1,482 @@
+﻿2026-10-28T04:28:30.8847040Z Current runner version: '2.338.0'
+2026-10-28T04:28:30.8885587Z ##[group]Runner Image Provisioner
+2026-10-28T04:28:30.8886988Z Hosted Compute Agent
+2026-10-28T04:28:30.8888012Z Version: 20261021.618
+2026-10-28T04:28:30.8889221Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-28T04:28:30.8890862Z Build Date: 2026-10-21T00:45:21Z
+2026-10-28T04:28:30.8892543Z Worker ID: {b6bbb9de-71fa-4b50-9f83-38a72caeb22f}
+2026-10-28T04:28:30.8893779Z Region: centralus
+2026-10-28T04:28:30.8894924Z Cloud: Azure
+2026-10-28T04:28:30.8895935Z ##[endgroup]
+2026-10-28T04:28:30.8898324Z ##[group]Operating System
+2026-10-28T04:28:30.8899295Z Ubuntu
+2026-10-28T04:28:30.8900215Z 24.04.5
+2026-10-28T04:28:30.8901021Z LTS
+2026-10-28T04:28:30.8901874Z ##[endgroup]
+2026-10-28T04:28:30.8902848Z ##[group]Runner Image
+2026-10-28T04:28:30.8903787Z Image: ubuntu-24.04
+2026-10-28T04:28:30.8905186Z Version: 20261012.334.1
+2026-10-28T04:28:30.8907222Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-28T04:28:30.8910215Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-28T04:28:30.8911924Z ##[endgroup]
+2026-10-28T04:28:30.8914366Z ##[group]GITHUB_TOKEN Permissions
+2026-10-28T04:28:30.8917364Z Contents: read
+2026-10-28T04:28:30.8918507Z Metadata: read
+2026-10-28T04:28:30.8919479Z ##[endgroup]
+2026-10-28T04:28:30.8922546Z Secret source: Actions
+2026-10-28T04:28:30.8924483Z Cache mode: write
+2026-10-28T04:28:30.8926101Z Prepare workflow directory
+2026-10-28T04:28:30.9304749Z Prepare all required actions
+2026-10-28T04:28:30.9362935Z Getting action download info
+2026-10-28T04:28:31.2084670Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-28T04:28:31.3095563Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-10-28T04:28:31.5003161Z Complete job name: server-python
+2026-10-28T04:28:31.5934581Z ##[group]Run actions/checkout@v4
+2026-10-28T04:28:31.5935605Z with:
+2026-10-28T04:28:31.5936118Z   repository: BluesilveEmperor/PDFTranslate-Zotero
+2026-10-28T04:28:31.5940133Z   token: ***
+2026-10-28T04:28:31.5940556Z   ssh-strict: true
+2026-10-28T04:28:31.5941038Z   ssh-user: git
+2026-10-28T04:28:31.5941471Z   persist-credentials: true
+2026-10-28T04:28:31.5941959Z   clean: true
+2026-10-28T04:28:31.5942402Z   sparse-checkout-cone-mode: true
+2026-10-28T04:28:31.5942914Z   fetch-depth: 1
+2026-10-28T04:28:31.5943339Z   fetch-tags: false
+2026-10-28T04:28:31.5943783Z   show-progress: true
+2026-10-28T04:28:31.5944442Z   lfs: false
+2026-10-28T04:28:31.5944848Z   submodules: false
+2026-10-28T04:28:31.5945292Z   set-safe-directory: true
+2026-10-28T04:28:31.5945798Z   allow-unsafe-pr-checkout: false
+2026-10-28T04:28:31.5946696Z ##[endgroup]
+2026-10-28T04:28:31.9157498Z Syncing repository: BluesilveEmperor/PDFTranslate-Zotero
+2026-10-28T04:28:31.9160691Z ##[group]Getting Git version info
+2026-10-28T04:28:31.9162013Z Working directory is '/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero'
+2026-10-28T04:28:31.9163718Z [command]/usr/bin/git version
+2026-10-28T04:28:31.9261478Z git version 2.55.0
+2026-10-28T04:28:31.9288257Z ##[endgroup]
+2026-10-28T04:28:31.9307507Z Temporarily overriding HOME='/home/runner/work/_temp/f98e4b63-79c6-48f4-8606-e1ed599ca649' before making global git config changes
+2026-10-28T04:28:31.9324860Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-28T04:28:31.9327825Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero
+2026-10-28T04:28:31.9383456Z Deleting the contents of '/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero'
+2026-10-28T04:28:31.9391670Z ##[group]Initializing the repository
+2026-10-28T04:28:31.9397529Z [command]/usr/bin/git init /home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero
+2026-10-28T04:28:31.9531644Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-28T04:28:31.9534304Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-28T04:28:31.9541076Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-28T04:28:31.9543222Z hint: call:
+2026-10-28T04:28:31.9544984Z hint:
+2026-10-28T04:28:31.9546507Z hint: 	git config --global init.defaultBranch <name>
+2026-10-28T04:28:31.9548113Z hint:
+2026-10-28T04:28:31.9549705Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-28T04:28:31.9551793Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-28T04:28:31.9553586Z hint:
+2026-10-28T04:28:31.9555412Z hint: 	git branch -m <name>
+2026-10-28T04:28:31.9556866Z hint:
+2026-10-28T04:28:31.9558937Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-28T04:28:31.9561797Z Initialized empty Git repository in /home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/.git/
+2026-10-28T04:28:31.9566805Z [command]/usr/bin/git remote add origin https://github.com/BluesilveEmperor/PDFTranslate-Zotero
+2026-10-28T04:28:31.9622299Z ##[endgroup]
+2026-10-28T04:28:31.9624271Z ##[group]Disabling automatic garbage collection
+2026-10-28T04:28:31.9628320Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-28T04:28:31.9682687Z ##[endgroup]
+2026-10-28T04:28:31.9685351Z ##[group]Setting up auth
+2026-10-28T04:28:31.9691801Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-28T04:28:31.9746999Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-28T04:28:32.0189728Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-28T04:28:32.0237535Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-28T04:28:32.0480941Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-28T04:28:32.0520331Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-28T04:28:32.0767434Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-28T04:28:32.0817361Z ##[endgroup]
+2026-10-28T04:28:32.0818724Z ##[group]Fetching the repository
+2026-10-28T04:28:32.0832976Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e98e18dbfe3869227e5880a0b081eeeb2c9d84c5:refs/tags/v4.1.7
+2026-10-28T04:28:33.1025274Z From https://github.com/BluesilveEmperor/PDFTranslate-Zotero
+2026-10-28T04:28:33.1028881Z  * [new ref]         e98e18dbfe3869227e5880a0b081eeeb2c9d84c5 -> v4.1.7
+2026-10-28T04:28:33.1033133Z ##[endgroup]
+2026-10-28T04:28:33.1035616Z ##[group]Determining the checkout info
+2026-10-28T04:28:33.1037731Z ##[endgroup]
+2026-10-28T04:28:33.1038758Z [command]/usr/bin/git sparse-checkout disable
+2026-10-28T04:28:33.1098478Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-28T04:28:33.1134589Z ##[group]Checking out the ref
+2026-10-28T04:28:33.1136670Z [command]/usr/bin/git checkout --progress --force refs/tags/v4.1.7
+2026-10-28T04:28:33.2399054Z Note: switching to 'refs/tags/v4.1.7'.
+2026-10-28T04:28:33.2400283Z 
+2026-10-28T04:28:33.2401271Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-28T04:28:33.2403692Z changes and commit them, and you can discard any commits you make in this
+2026-10-28T04:28:33.2406426Z state without impacting any branches by switching back to a branch.
+2026-10-28T04:28:33.2407811Z 
+2026-10-28T04:28:33.2408803Z If you want to create a new branch to retain commits you create, you may
+2026-10-28T04:28:33.2412031Z do so (now or later) by using -c with the switch command. Example:
+2026-10-28T04:28:33.2414226Z 
+2026-10-28T04:28:33.2414893Z   git switch -c <new-branch-name>
+2026-10-28T04:28:33.2416112Z 
+2026-10-28T04:28:33.2416924Z Or undo this operation with:
+2026-10-28T04:28:33.2418085Z 
+2026-10-28T04:28:33.2418821Z   git switch -
+2026-10-28T04:28:33.2419813Z 
+2026-10-28T04:28:33.2421422Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-28T04:28:33.2423524Z 
+2026-10-28T04:28:33.2425488Z HEAD is now at e98e18d fix(ci): 单元测试跨平台化 + 发布不变量断言与实现同步 + Release artifacts 上传
+2026-10-28T04:28:33.2431678Z ##[endgroup]
+2026-10-28T04:28:33.2468191Z [command]/usr/bin/git log -1 --format=%H
+2026-10-28T04:28:33.2496316Z e98e18dbfe3869227e5880a0b081eeeb2c9d84c5
+2026-10-28T04:28:33.2913178Z ##[group]Run actions/setup-python@v5
+2026-10-28T04:28:33.2914741Z with:
+2026-10-28T04:28:33.2915682Z   python-version: 3.12
+2026-10-28T04:28:33.2987723Z   check-latest: false
+2026-10-28T04:28:33.2999034Z   token: ***
+2026-10-28T04:28:33.3000048Z   update-environment: true
+2026-10-28T04:28:33.3001287Z   allow-prereleases: false
+2026-10-28T04:28:33.3002483Z   freethreaded: false
+2026-10-28T04:28:33.3003498Z ##[endgroup]
+2026-10-28T04:28:33.4450524Z ##[group]Installed versions
+2026-10-28T04:28:33.4576553Z (node:2263) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-28T04:28:33.4580297Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-28T04:28:33.4583261Z Successfully set up CPython (3.12.15)
+2026-10-28T04:28:33.4587416Z ##[endgroup]
+2026-10-28T04:28:33.4825964Z ##[group]Run python -m pip install --upgrade pip
+2026-10-28T04:28:33.4828511Z [36;1mpython -m pip install --upgrade pip[0m
+2026-10-28T04:28:33.4831594Z [36;1mpython -m pip install toml packaging pymupdf flask pypdf pydantic[0m
+2026-10-28T04:28:33.4835188Z [36;1mpython -m pip install --no-deps pdf2zh-next==2.9.0[0m
+2026-10-28T04:28:33.5174255Z shell: /usr/bin/bash -e {0}
+2026-10-28T04:28:33.5175697Z env:
+2026-10-28T04:28:33.5177037Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:33.5179018Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-28T04:28:33.5180980Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:33.5182735Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:33.5184666Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:33.5186473Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-28T04:28:33.5188016Z ##[endgroup]
+2026-10-28T04:28:34.3239228Z Requirement already satisfied: pip in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (26.2.1)
+2026-10-28T04:28:34.4714473Z Collecting pip
+2026-10-28T04:28:34.5579127Z   Downloading pip-26.2.2-py3-none-any.whl.metadata (4.6 kB)
+2026-10-28T04:28:34.5791734Z Downloading pip-26.2.2-py3-none-any.whl (1.8 MB)
+2026-10-28T04:28:34.8073072Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 9.0 MB/s  0:00:00
+2026-10-28T04:28:34.8607475Z Installing collected packages: pip
+2026-10-28T04:28:34.8609408Z   Attempting uninstall: pip
+2026-10-28T04:28:34.8628130Z     Found existing installation: pip 26.2.1
+2026-10-28T04:28:34.9151199Z     Uninstalling pip-26.2.1:
+2026-10-28T04:28:34.9217391Z       Successfully uninstalled pip-26.2.1
+2026-10-28T04:28:35.9066949Z Successfully installed pip-26.2.2
+2026-10-28T04:28:36.4120407Z Collecting toml
+2026-10-28T04:28:36.4888176Z   Downloading toml-0.10.2-py2.py3-none-any.whl.metadata (7.1 kB)
+2026-10-28T04:28:36.5248373Z Collecting packaging
+2026-10-28T04:28:36.5385332Z   Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-10-28T04:28:36.7469648Z Collecting pymupdf
+2026-10-28T04:28:36.7605343Z   Downloading pymupdf-2.0-cp311-abi3-manylinux_2_28_x86_64.whl.metadata (25 kB)
+2026-10-28T04:28:36.7989529Z Collecting flask
+2026-10-28T04:28:36.8122531Z   Downloading flask-3.1.3-py3-none-any.whl.metadata (3.2 kB)
+2026-10-28T04:28:36.8500097Z Collecting pypdf
+2026-10-28T04:28:36.8635911Z   Downloading pypdf-6.21.3-py3-none-any.whl.metadata (7.6 kB)
+2026-10-28T04:28:36.9967761Z Collecting pydantic
+2026-10-28T04:28:37.0104736Z   Downloading pydantic-2.14.1-py3-none-any.whl.metadata (133 kB)
+2026-10-28T04:28:37.0712151Z Collecting networkx (from pymupdf)
+2026-10-28T04:28:37.0847920Z   Downloading networkx-3.7-py3-none-any.whl.metadata (6.7 kB)
+2026-10-28T04:28:37.3087628Z Collecting numpy (from pymupdf)
+2026-10-28T04:28:37.3226753Z   Downloading numpy-2.5.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+2026-10-28T04:28:37.3979492Z Collecting onnxruntime (from pymupdf)
+2026-10-28T04:28:37.4112786Z   Downloading onnxruntime-1.31.1-cp312-cp312-manylinux_2_28_x86_64.whl.metadata (5.8 kB)
+2026-10-28T04:28:37.4605666Z Collecting pyyaml (from pymupdf)
+2026-10-28T04:28:37.4746458Z   Downloading pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2026-10-28T04:28:37.4999784Z Collecting pymupdf-layout==2.0 (from pymupdf)
+2026-10-28T04:28:37.5132790Z   Downloading pymupdf_layout-2.0-py3-none-any.whl.metadata (368 bytes)
+2026-10-28T04:28:37.5978282Z Collecting psutil (from pymupdf)
+2026-10-28T04:28:37.6116329Z   Downloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl.metadata (22 kB)
+2026-10-28T04:28:37.6410224Z Collecting tabulate (from pymupdf)
+2026-10-28T04:28:37.6547885Z   Downloading tabulate-0.10.0-py3-none-any.whl.metadata (40 kB)
+2026-10-28T04:28:37.6887732Z Collecting pymupdf4llm==2.0 (from pymupdf)
+2026-10-28T04:28:37.7022873Z   Downloading pymupdf4llm-2.0-py3-none-any.whl.metadata (360 bytes)
+2026-10-28T04:28:37.7260943Z Collecting blinker>=1.9.0 (from flask)
+2026-10-28T04:28:37.7396602Z   Downloading blinker-1.9.0-py3-none-any.whl.metadata (1.6 kB)
+2026-10-28T04:28:37.7681540Z Collecting click>=8.1.3 (from flask)
+2026-10-28T04:28:37.7814857Z   Downloading click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+2026-10-28T04:28:37.8054979Z Collecting itsdangerous>=2.2.0 (from flask)
+2026-10-28T04:28:37.8194348Z   Downloading itsdangerous-2.2.0-py3-none-any.whl.metadata (1.9 kB)
+2026-10-28T04:28:37.8476968Z Collecting jinja2>=3.1.2 (from flask)
+2026-10-28T04:28:37.8611645Z   Downloading jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+2026-10-28T04:28:37.9308468Z Collecting markupsafe>=2.1.1 (from flask)
+2026-10-28T04:28:37.9446109Z   Downloading markupsafe-3.0.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+2026-10-28T04:28:37.9766856Z Collecting werkzeug>=3.1.0 (from flask)
+2026-10-28T04:28:37.9901247Z   Downloading werkzeug-3.1.9-py3-none-any.whl.metadata (4.1 kB)
+2026-10-28T04:28:38.0150998Z Collecting annotated-types>=0.6.0 (from pydantic)
+2026-10-28T04:28:38.0288199Z   Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+2026-10-28T04:28:38.7326092Z Collecting pydantic-core==2.50.1 (from pydantic)
+2026-10-28T04:28:38.7463131Z   Downloading pydantic_core-2.50.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.5 kB)
+2026-10-28T04:28:38.7742774Z Collecting typing-extensions>=4.16.0 (from pydantic)
+2026-10-28T04:28:38.7890403Z   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+2026-10-28T04:28:38.8157854Z Collecting typing-inspection>=0.4.4 (from pydantic)
+2026-10-28T04:28:38.8300092Z   Downloading typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+2026-10-28T04:28:38.8625813Z Collecting flatbuffers (from onnxruntime->pymupdf)
+2026-10-28T04:28:38.8761894Z   Downloading flatbuffers-25.12.19-py2.py3-none-any.whl.metadata (1.0 kB)
+2026-10-28T04:28:39.0681806Z Collecting protobuf>=4.25.8 (from onnxruntime->pymupdf)
+2026-10-28T04:28:39.0817087Z   Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl.metadata (595 bytes)
+2026-10-28T04:28:39.1003858Z Downloading toml-0.10.2-py2.py3-none-any.whl (16 kB)
+2026-10-28T04:28:39.1155612Z Downloading packaging-26.3-py3-none-any.whl (129 kB)
+2026-10-28T04:28:39.1339405Z Downloading pymupdf-2.0-cp311-abi3-manylinux_2_28_x86_64.whl (68.9 MB)
+2026-10-28T04:28:39.4528720Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 68.9/68.9 MB 225.8 MB/s  0:00:00
+2026-10-28T04:28:39.4664806Z Downloading pymupdf_layout-2.0-py3-none-any.whl (927 bytes)
+2026-10-28T04:28:39.4819713Z Downloading pymupdf4llm-2.0-py3-none-any.whl (904 bytes)
+2026-10-28T04:28:39.4976303Z Downloading flask-3.1.3-py3-none-any.whl (103 kB)
+2026-10-28T04:28:39.5147886Z Downloading pypdf-6.21.3-py3-none-any.whl (409 kB)
+2026-10-28T04:28:39.5318432Z Downloading pydantic-2.14.1-py3-none-any.whl (488 kB)
+2026-10-28T04:28:39.5497917Z Downloading pydantic_core-2.50.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.2 MB)
+2026-10-28T04:28:39.5594862Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.2/2.2 MB 273.2 MB/s  0:00:00
+2026-10-28T04:28:39.5730006Z Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+2026-10-28T04:28:39.5886672Z Downloading blinker-1.9.0-py3-none-any.whl (8.5 kB)
+2026-10-28T04:28:39.6043477Z Downloading click-8.5.0-py3-none-any.whl (125 kB)
+2026-10-28T04:28:39.6202385Z Downloading itsdangerous-2.2.0-py3-none-any.whl (16 kB)
+2026-10-28T04:28:39.6361687Z Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
+2026-10-28T04:28:39.6523511Z Downloading markupsafe-3.0.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+2026-10-28T04:28:39.6682839Z Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+2026-10-28T04:28:39.6844928Z Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+2026-10-28T04:28:39.7005514Z Downloading werkzeug-3.1.9-py3-none-any.whl (228 kB)
+2026-10-28T04:28:39.7177347Z Downloading networkx-3.7-py3-none-any.whl (2.1 MB)
+2026-10-28T04:28:39.7272444Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 269.5 MB/s  0:00:00
+2026-10-28T04:28:39.7414511Z Downloading numpy-2.5.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.7 MB)
+2026-10-28T04:28:39.7978401Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.7/16.7 MB 331.3 MB/s  0:00:00
+2026-10-28T04:28:39.8121999Z Downloading onnxruntime-1.31.1-cp312-cp312-manylinux_2_28_x86_64.whl (23.8 MB)
+2026-10-28T04:28:39.8917621Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.8/23.8 MB 309.9 MB/s  0:00:00
+2026-10-28T04:28:39.9062938Z Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)
+2026-10-28T04:28:39.9228702Z Downloading flatbuffers-25.12.19-py2.py3-none-any.whl (26 kB)
+2026-10-28T04:28:39.9385499Z Downloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (155 kB)
+2026-10-28T04:28:39.9542271Z Downloading pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)
+2026-10-28T04:28:39.9601478Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 807.9/807.9 kB 150.5 MB/s  0:00:00
+2026-10-28T04:28:39.9733033Z Downloading tabulate-0.10.0-py3-none-any.whl (39 kB)
+2026-10-28T04:28:40.1957784Z Installing collected packages: pymupdf4llm, pymupdf-layout, flatbuffers, typing-extensions, toml, tabulate, pyyaml, pypdf, psutil, protobuf, packaging, numpy, networkx, markupsafe, itsdangerous, click, blinker, annotated-types, werkzeug, typing-inspection, pydantic-core, onnxruntime, jinja2, pymupdf, pydantic, flask
+2026-10-28T04:28:47.6125170Z 
+2026-10-28T04:28:47.6156075Z Successfully installed annotated-types-0.8.0 blinker-1.9.0 click-8.5.0 flask-3.1.3 flatbuffers-25.12.19 itsdangerous-2.2.0 jinja2-3.1.6 markupsafe-3.0.4 networkx-3.7 numpy-2.5.4 onnxruntime-1.31.1 packaging-26.3 protobuf-7.36.2 psutil-7.2.2 pydantic-2.14.1 pydantic-core-2.50.1 pymupdf-2.0 pymupdf-layout-2.0 pymupdf4llm-2.0 pypdf-6.21.3 pyyaml-6.0.3 tabulate-0.10.0 toml-0.10.2 typing-extensions-4.16.0 typing-inspection-0.4.4 werkzeug-3.1.9
+2026-10-28T04:28:48.2044461Z Collecting pdf2zh-next==2.9.0
+2026-10-28T04:28:48.2782910Z   Downloading pdf2zh_next-2.9.0-py3-none-any.whl.metadata (10 kB)
+2026-10-28T04:28:48.2966835Z Downloading pdf2zh_next-2.9.0-py3-none-any.whl (155 kB)
+2026-10-28T04:28:48.3441817Z Installing collected packages: pdf2zh-next
+2026-10-28T04:28:48.4283397Z Successfully installed pdf2zh-next-2.9.0
+2026-10-28T04:28:48.4845825Z ##[group]Run python -m compileall -q server
+2026-10-28T04:28:48.4846238Z [36;1mpython -m compileall -q server[0m
+2026-10-28T04:28:48.4913184Z shell: /usr/bin/bash -e {0}
+2026-10-28T04:28:48.4913504Z env:
+2026-10-28T04:28:48.4913845Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:48.4914629Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-28T04:28:48.4915216Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:48.4915730Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:48.4916246Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:48.4916764Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-28T04:28:48.4917213Z ##[endgroup]
+2026-10-28T04:28:48.6358011Z ##[group]Run python -m unittest discover -s server/tests -p 'test_*.py'
+2026-10-28T04:28:48.6358596Z [36;1mpython -m unittest discover -s server/tests -p 'test_*.py'[0m
+2026-10-28T04:28:48.6425554Z shell: /usr/bin/bash -e {0}
+2026-10-28T04:28:48.6425845Z env:
+2026-10-28T04:28:48.6426159Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:48.6426688Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-28T04:28:48.6427221Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:48.6427692Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:48.6428170Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-28T04:28:48.6428654Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-28T04:28:48.6429054Z   PYTHONPATH: server
+2026-10-28T04:28:48.6429306Z ##[endgroup]
+2026-10-28T04:28:49.2747700Z [0;93m2026-10-28 04:28:49.273102141 [W:onnxruntime:Default, device_discovery.cc:95 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-10-28T04:28:49.8564216Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fitz/__init__.py:17: FutureWarning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+2026-10-28T04:28:49.8565438Z   warnings.warn(
+2026-10-28T04:28:50.0799414Z .....................................................................................................................................F..............F..............Traceback (most recent call last):
+2026-10-28T04:28:50.0809048Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 716, in translate
+2026-10-28T04:28:50.0809964Z     input_path, config = self.process_request(task_id)
+2026-10-28T04:28:50.0810479Z                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.0811360Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 458, in process_request
+2026-10-28T04:28:50.0812292Z     file_name = self._safe_upload_filename(data.get('fileName'))
+2026-10-28T04:28:50.0812820Z                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.0813724Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 438, in _safe_upload_filename
+2026-10-28T04:28:50.0814979Z     raise ValueError("Invalid PDF filename")
+2026-10-28T04:28:50.0815413Z ValueError: Invalid PDF filename
+2026-10-28T04:28:50.1491280Z [execute_with_progress] pdf2zh_next paper.pdf
+2026-10-28T04:28:50.1491781Z 
+2026-10-28T04:28:50.1491799Z 
+2026-10-28T04:28:50.1492436Z 📦 将在当前翻译环境中直接安装/更新依赖，不再创建 staging 或 backup 环境。
+2026-10-28T04:28:50.1493064Z    使用已有 uv 环境: /tmp/managed
+2026-10-28T04:28:50.1493541Z    Python: /opt/hostedtoolcache/Python/3.12.15/x64/bin/python
+2026-10-28T04:28:50.1494592Z 🔧 检测到 pdf2zh_next 关键依赖损坏，将重新安装完整依赖: missing _pydantic_core
+2026-10-28T04:28:50.1495228Z 
+2026-10-28T04:28:50.1495387Z ✅ 翻译环境已更新。
+2026-10-28T04:28:50.1495668Z    当前: 
+2026-10-28T04:28:50.1495985Z 🔧 检测到 uv 环境不完整，将直接安装缺失依赖。
+2026-10-28T04:28:50.1496346Z [execute_with_progress] python -V
+2026-10-28T04:28:50.1496599Z 
+2026-10-28T04:28:50.1496822Z ℹ️ git 源解析成本较高，已保留前 2 个通过预检的下载源用于回退。
+2026-10-28T04:28:50.1497244Z ℹ️ git 源解析成本较高，已保留前 2 个通过预检的下载源用于回退。
+2026-10-28T04:28:50.1497654Z ℹ️ git 源解析成本较高，已保留前 2 个通过预检的下载源用于回退。
+2026-10-28T04:28:50.1498754Z ⚠️ [Zotero PDF2zh Server] os.replace 归档失败，改用复制: /tmp/move-staging-1k0swpl2/paper-dual.pdf -> /tmp/move-ut44yjhu/translated/Traned_double_paper.pdf: locked
+2026-10-28T04:28:50.1500337Z ❌ [Zotero PDF2zh Server] 产物归档失败: /tmp/move-staging-1k0swpl2/paper-dual.pdf -> /tmp/move-ut44yjhu/translated/Traned_double_paper.pdf: locked
+2026-10-28T04:28:50.1502187Z ⚠️ [Zotero PDF2zh Server] os.replace 归档失败，改用复制: /tmp/move-staging-38qtkbs_/paper-dual.pdf -> /tmp/move-l0fhh0pv/translated/Traned_double_paper.pdf: target locked
+2026-10-28T04:28:50.1503832Z ❌ [Zotero PDF2zh Server] 产物归档失败: /tmp/move-staging-38qtkbs_/paper-dual.pdf -> /tmp/move-l0fhh0pv/translated/Traned_double_paper.pdf: copy failed
+2026-10-28T04:28:50.1505713Z ⚠️ [Zotero PDF2zh Server] os.replace 归档失败，改用复制: /tmp/move-staging-338xle5b/paper-dual.pdf -> /tmp/move-7wn5iu8m/translated/Traned_double_paper.pdf: target locked
+2026-10-28T04:28:50.1506578Z 
+2026-10-28T04:28:50.1510319Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.1513176Z ⚠️ [Zotero PDF2zh Server] /translate Error: Invalid PDF filename
+2026-10-28T04:28:50.1513445Z 
+2026-10-28T04:28:50.1516562Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.1519563Z 🐲 翻译成功, 生成文件: /tmp/job-vek71us0/translated/Traned_single_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.1520121Z 🐲 翻译成功, 生成文件: /tmp/job-vek71us0/translated/Traned_double_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.1520415Z 
+2026-10-28T04:28:50.1523260Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.1525919Z 
+2026-10-28T04:28:50.1528889Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.1531352Z 
+2026-10-28T04:28:50.1534319Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.1536777Z 
+2026-10-28T04:28:50.1539612Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.1542058Z 
+2026-10-28T04:28:50.1544986Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.1547572Z 
+2026-10-28T04:28:50.1566028Z ............Traceback (most recent call last):
+2026-10-28T04:28:50.1569670Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 599, in run
+2026-10-28T04:28:50.1570363Z     worker()
+2026-10-28T04:28:50.1570994Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 729, in <lambda>
+2026-10-28T04:28:50.1571781Z     lambda: self._execute_translate_job(task_id, input_path, config, engine),
+2026-10-28T04:28:50.1572339Z             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1573134Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 747, in _execute_translate_job
+2026-10-28T04:28:50.1574200Z     products = self._translate_products(task_id, input_path, config, engine)
+2026-10-28T04:28:50.1574713Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1575393Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1139, in __call__
+2026-10-28T04:28:50.1576303Z     return self._mock_call(*args, **kwargs)
+2026-10-28T04:28:50.1576851Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1577499Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+2026-10-28T04:28:50.1578141Z     return self._execute_mock_call(*args, **kwargs)
+2026-10-28T04:28:50.1578440Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1579014Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1204, in _execute_mock_call
+2026-10-28T04:28:50.1579525Z     result = effect(*args, **kwargs)
+2026-10-28T04:28:50.1579776Z              ^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1580357Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/tests/test_translation_jobs.py", line 780, in boom
+2026-10-28T04:28:50.1580957Z     raise RuntimeError("header path")
+2026-10-28T04:28:50.1581230Z RuntimeError: header path
+2026-10-28T04:28:50.1702360Z ..Traceback (most recent call last):
+2026-10-28T04:28:50.1705856Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 599, in run
+2026-10-28T04:28:50.1706977Z     worker()
+2026-10-28T04:28:50.1707593Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 729, in <lambda>
+2026-10-28T04:28:50.1708449Z     lambda: self._execute_translate_job(task_id, input_path, config, engine),
+2026-10-28T04:28:50.1708920Z             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1709642Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 747, in _execute_translate_job
+2026-10-28T04:28:50.1710447Z     products = self._translate_products(task_id, input_path, config, engine)
+2026-10-28T04:28:50.1711025Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1711645Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1139, in __call__
+2026-10-28T04:28:50.1712221Z     return self._mock_call(*args, **kwargs)
+2026-10-28T04:28:50.1712546Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1713511Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+2026-10-28T04:28:50.1714464Z     return self._execute_mock_call(*args, **kwargs)
+2026-10-28T04:28:50.1714811Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1715428Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1204, in _execute_mock_call
+2026-10-28T04:28:50.1716032Z     result = effect(*args, **kwargs)
+2026-10-28T04:28:50.1716319Z              ^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.1716961Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/tests/test_translation_jobs.py", line 724, in boom
+2026-10-28T04:28:50.1717656Z     raise RuntimeError("kernel crashed")
+2026-10-28T04:28:50.1717972Z RuntimeError: kernel crashed
+2026-10-28T04:28:50.2013826Z ....Traceback (most recent call last):
+2026-10-28T04:28:50.2017694Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 609, in _start_accepted_job
+2026-10-28T04:28:50.2018766Z     payload = worker() or {}
+2026-10-28T04:28:50.2019141Z               ^^^^^^^^
+2026-10-28T04:28:50.2019867Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 729, in <lambda>
+2026-10-28T04:28:50.2020790Z     lambda: self._execute_translate_job(task_id, input_path, config, engine),
+2026-10-28T04:28:50.2021399Z             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.2022309Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/server.py", line 747, in _execute_translate_job
+2026-10-28T04:28:50.2023290Z     products = self._translate_products(task_id, input_path, config, engine)
+2026-10-28T04:28:50.2023874Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.2025317Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1139, in __call__
+2026-10-28T04:28:50.2026128Z     return self._mock_call(*args, **kwargs)
+2026-10-28T04:28:50.2026656Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.2027397Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+2026-10-28T04:28:50.2028166Z     return self._execute_mock_call(*args, **kwargs)
+2026-10-28T04:28:50.2028601Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.2029391Z   File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/unittest/mock.py", line 1204, in _execute_mock_call
+2026-10-28T04:28:50.2029986Z     result = effect(*args, **kwargs)
+2026-10-28T04:28:50.2030269Z              ^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-28T04:28:50.2030908Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/tests/test_translation_jobs.py", line 837, in boom
+2026-10-28T04:28:50.2031598Z     raise RuntimeError("sync crashed")
+2026-10-28T04:28:50.2031899Z RuntimeError: sync crashed
+2026-10-28T04:28:50.3829608Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.3834749Z 
+2026-10-28T04:28:50.3840360Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.3845676Z 
+2026-10-28T04:28:50.3851294Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.3856757Z 🐲 双语对照成功, 生成文件: Traned_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3857522Z 🐲 双语对照成功, 生成文件: Traned_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3858289Z 🐲 双语对照成功, 生成文件: Traned_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3859724Z 🐲 翻译成功, 生成文件: /tmp/jobs-vlio9wg5/translated/Traned_single_other.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3860921Z 🐲 翻译成功, 生成文件: /tmp/jobs-2xv1gqrr/translated/Traned_single_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3862023Z 🐲 翻译成功, 生成文件: /tmp/jobs-2xv1gqrr/translated/Traned_single_other.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3863176Z 🐲 翻译成功, 生成文件: /tmp/jobs-9lb6sggp/translated/Traned_single_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3864591Z 🐲 翻译成功, 生成文件: /tmp/jobs-9lb6sggp/translated/Traned_single_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3865172Z 
+2026-10-28T04:28:50.3870761Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.3875794Z 
+2026-10-28T04:28:50.3881404Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.3887328Z 🐲 双语对照成功(裁剪后拼接), 生成文件: Traned_crop_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3888230Z 🐲 双语对照成功(裁剪后拼接), 生成文件: Traned_crop_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3889086Z 🐲 双语对照成功(裁剪后拼接), 生成文件: Traned_crop_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.3889535Z 
+2026-10-28T04:28:50.3895320Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.3901213Z 🔍 [Zotero PDF2zh Server] 获取文件类型: dual-cut from /tmp/crop-_kai9f0b/translated/.staging/b00ac0fc-6852-4e99-baa1-6243d3e29c93/Traned_double_cut_paper.pdf
+2026-10-28T04:28:50.3902298Z 
+2026-10-28T04:28:50.3908393Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.3914407Z 🔍 [Zotero PDF2zh Server] 获取文件类型: origin from /tmp/crop-pfx4fx8h/translated/.staging/ddc569f1-dfe8-4a88-a3ae-be6b016eee01/paper.pdf
+2026-10-28T04:28:50.3917145Z 🔍 [Zotero PDF2zh Server] 开始裁剪文件: /tmp/crop-pfx4fx8h/translated/.staging/ddc569f1-dfe8-4a88-a3ae-be6b016eee01/paper.pdf, origin, 裁剪类型: origin-cut, /tmp/crop-pfx4fx8h/translated/.staging/ddc569f1-dfe8-4a88-a3ae-be6b016eee01/paper.cut.pdf
+2026-10-28T04:28:50.3918816Z 
+2026-10-28T04:28:50.3924694Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.3930527Z 🔍 [Zotero PDF2zh Server] 获取文件类型: origin from /tmp/crop-l11ldm0v/translated/.staging/3d245ef2-a08f-4682-9862-1c18dc8907aa/paper.pdf
+2026-10-28T04:28:50.3933243Z 🔍 [Zotero PDF2zh Server] 开始裁剪文件: /tmp/crop-l11ldm0v/translated/.staging/3d245ef2-a08f-4682-9862-1c18dc8907aa/paper.pdf, origin, 裁剪类型: origin-cut, /tmp/crop-l11ldm0v/translated/.staging/3d245ef2-a08f-4682-9862-1c18dc8907aa/paper.cut.pdf
+2026-10-28T04:28:50.3935417Z 
+2026-10-28T04:28:50.4708360Z .........................................
+2026-10-28T04:28:50.4708932Z ======================================================================
+2026-10-28T04:28:50.4709984Z FAIL: test_works_with_absolute_paths (test_translated_product_naming.GetFileTypeTests.test_works_with_absolute_paths)
+2026-10-28T04:28:50.4711024Z ----------------------------------------------------------------------
+2026-10-28T04:28:50.4711591Z Traceback (most recent call last):
+2026-10-28T04:28:50.4712900Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/tests/test_translated_product_naming.py", line 183, in test_works_with_absolute_paths
+2026-10-28T04:28:50.4714349Z     self.assertEqual(
+2026-10-28T04:28:50.4714730Z AssertionError: 'origin' != 'mono-cut'
+2026-10-28T04:28:50.4715133Z - origin
+2026-10-28T04:28:50.4715411Z + mono-cut
+2026-10-28T04:28:50.4715631Z 
+2026-10-28T04:28:50.4715638Z 
+2026-10-28T04:28:50.4715811Z ======================================================================
+2026-10-28T04:28:50.4716879Z FAIL: test_semantic_stem_drops_extension_and_prefix (test_translated_product_naming.NamingTests.test_semantic_stem_drops_extension_and_prefix)
+2026-10-28T04:28:50.4717964Z ----------------------------------------------------------------------
+2026-10-28T04:28:50.4718509Z Traceback (most recent call last):
+2026-10-28T04:28:50.4719746Z   File "/home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero/server/tests/test_translated_product_naming.py", line 76, in test_semantic_stem_drops_extension_and_prefix
+2026-10-28T04:28:50.4720916Z     self.assertEqual(
+2026-10-28T04:28:50.4721403Z AssertionError: 'C:\\translated\\Traned_double_paper' != 'paper'
+2026-10-28T04:28:50.4721983Z - C:\translated\Traned_double_paper
+2026-10-28T04:28:50.4722366Z + paper
+2026-10-28T04:28:50.4722531Z 
+2026-10-28T04:28:50.4722538Z 
+2026-10-28T04:28:50.4723058Z ----------------------------------------------------------------------
+2026-10-28T04:28:50.4723598Z Ran 222 tests in 0.611s
+2026-10-28T04:28:50.4723821Z 
+2026-10-28T04:28:50.4724161Z FAILED (failures=2)
+2026-10-28T04:28:50.4730982Z 🔍 Config without llm_api:  {'engine': 'pdf2zh_next', 'service': 'siliconflowfree', 'sourceLang': 'en', 'targetLang': 'zh-CN', 'skip_last_pages': 0, 'thread_num': 8, 'qps': 4, 'pool_size': 0, 'pdf_w_offset': 40, 'pdf_h_offset': 20, 'pdf_offset_ratio': 5.0, 'pdf_white_margin': 0, 'mono': True, 'dual': True, 'mono_cut': False, 'dual_cut': False, 'crop_compare': False, 'compare': False, 'babeldoc': False, 'skip_font_subsets': False, 'font_file': '', 'font_family': 'auto', 'dual_mode': 'LR', 'trans_first': False, 'ocr': False, 'auto_ocr': False, 'no_watermark': True, 'save_auto_extracted_glossary': False, 'disable_glossary': False, 'no_dual': False, 'no_mono': False, 'skip_clean': False, 'enhance_compatibility': False, 'disable_rich_text_translate': False, 'translate_table_text': False, 'only_include_translated_page': False}
+2026-10-28T04:28:50.4736361Z 🔍 [Zotero PDF2zh Server] 获取文件类型: dual from /tmp/crop-s2ewdla4/translated/.staging/bf72dbfc-c1c3-4c99-9d9e-cd97d702830c/paper.LR_dual.pdf
+2026-10-28T04:28:50.4738406Z 🔍 [Zotero PDF2zh Server] 开始裁剪文件: /tmp/crop-s2ewdla4/tb.pdf, dual, 裁剪类型: dual-cut, /tmp/crop-s2ewdla4/translated/.staging/bf72dbfc-c1c3-4c99-9d9e-cd97d702830c/paper.dual-cut.pdf
+2026-10-28T04:28:50.4739892Z 🐲 双语对照成功, 生成文件: Traned_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.4740531Z 🐲 双语对照成功, 生成文件: Traned_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.4741223Z 🐲 双语对照成功(裁剪后拼接), 生成文件: Traned_crop_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.4741967Z 🐲 双语对照成功(裁剪后拼接), 生成文件: Traned_crop_compare_paper.pdf, 大小为: 0.00 MB
+2026-10-28T04:28:50.4742816Z ✅ [配置迁移] 旧配置已复制到 /tmp/prepare-qoho4vqo/server-config/pdf-cache: config.json
+2026-10-28T04:28:50.4743591Z 🔍 [Zotero PDF2zh Server] PDF2zh 开始翻译文件...
+2026-10-28T04:28:50.4744310Z 🔍 [Zotero PDF2zh Server] PDF2zh 开始翻译文件...
+2026-10-28T04:28:50.4744917Z 🔍 [Zotero PDF2zh Server] PDF2zh_next 开始翻译文件...
+2026-10-28T04:28:50.4745499Z 🔍 [Zotero PDF2zh Server] PDF2zh_next 开始翻译文件...
+2026-10-28T04:28:50.4746336Z 🔍 [Zotero PDF2zh Server] PDF2zh_next 开始翻译文件...
+2026-10-28T04:28:50.4746873Z 🔍 [Zotero PDF2zh Server] PDF2zh_next 开始翻译文件...
+2026-10-28T04:28:50.4747426Z 🔍 [Zotero PDF2zh Server] PDF2zh_next 开始翻译文件...
+2026-10-28T04:28:50.5931668Z ##[error]Process completed with exit code 1.
+2026-10-28T04:28:50.6131697Z Post job cleanup.
+2026-10-28T04:28:50.7028601Z [command]/usr/bin/git version
+2026-10-28T04:28:50.7079008Z git version 2.55.0
+2026-10-28T04:28:50.7126537Z Temporarily overriding HOME='/home/runner/work/_temp/8bd2234e-c2f2-46a7-b093-f71b571bc452' before making global git config changes
+2026-10-28T04:28:50.7127919Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-28T04:28:50.7133489Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/PDFTranslate-Zotero/PDFTranslate-Zotero
+2026-10-28T04:28:50.7183766Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-28T04:28:50.7234656Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-28T04:28:50.7531302Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-28T04:28:50.7562653Z http.https://github.com/.extraheader
+2026-10-28T04:28:50.7577571Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-28T04:28:50.7618903Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-28T04:28:50.7922923Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-28T04:28:50.7975081Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-28T04:28:50.8370388Z Cleaning up orphan processes
+2026-10-28T04:28:50.8731879Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
