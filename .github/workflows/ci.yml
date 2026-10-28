@@ -315,6 +315,7 @@ jobs:
                   rm -f /tmp/server.zip
                   zip -rq /tmp/server.zip server \
                     -x 'server/translated/*' \
+                    -x 'server/config/pdf-cache/*' \
                     -x 'server/zotero-pdf2zh-venv/*' \
                     -x 'server/zotero-pdf2zh-next-venv/*' \
                     -x 'server/config/config.json' \

@@ -80,6 +80,7 @@ jobs:
           rm -f server.zip
           zip -r server.zip server \
             -x 'server/translated/*' \
+            -x 'server/config/pdf-cache/*' \
             -x 'server/zotero-pdf2zh-venv/*' \
             -x 'server/zotero-pdf2zh-next-venv/*' \
             -x 'server/zotero-pdf2zh-venv.staging/*' \
