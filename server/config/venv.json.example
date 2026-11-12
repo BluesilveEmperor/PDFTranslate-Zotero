@@ -1,4 +1,5 @@
 {
+    "_comment": "Intel macOS（TARGET_ARCH=x86_64）便携包的依赖 pin 由 fork `pyproject.toml` 的 PEP 508 markers 生效，与 packages 里的 `pdf2zh @ git+...` 安装方式一致；请勿在此重复硬 pin，避免覆盖非 Intel 平台的依赖解析。",
     "pdf2zh": {
         "conda": {
             "python_version": "3.12",

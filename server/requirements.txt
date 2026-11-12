@@ -1,3 +1,7 @@
+# Intel macOS（TARGET_ARCH=x86_64）便携包的依赖 pin 由 fork `pyproject.toml`
+# 的 PEP 508 markers（如 numpy 等）生效；本文件走 `pdf2zh @ git+...` 安装方式，
+# 因此不要把 Intel 专用 pin 重复写在这里，否则会覆盖非 Intel 平台的解析结果。
+
 flask
 toml
 pypdf

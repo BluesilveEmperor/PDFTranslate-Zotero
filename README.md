@@ -26,9 +26,12 @@
 
 > **Note:** 上述译文由 AI 生成，可能不够准确，请以本中文文档为准。
 
-> 🚀 **v1.1.0**
+> 🚀 **v1.2.0**
 >
-> - **Server 改为「解压即用」便携包**：`server.zip`（约 296MB）内置 Python 3.12 运行时与全部依赖（含 `pdf2zh` fork 1.9.12），解压后双击 `start_server.bat`（Windows）或运行 `./start_server.sh`（Linux/macOS）即可启动，**不再需要安装 Python / uv / conda**
+> - **适配上游 pdf2zh v2.0.0**：翻译引擎显式启用 rich 进度样式
+> - **终端 rich 彩色进度条**：翻译进度以彩色进度条输出，插件端进度与阶段名照常上报
+> - **Intel macOS 便携包**：新增 `server-macos-x64.zip`（x86_64），Apple Silicon / Windows / Linux 仍下载 `server.zip`
+> - **Server 仍为「解压即用」便携包**：`server.zip`（约 296MB）内置 Python 3.12 运行时与全部依赖（含 `pdf2zh` fork 2.0.0），解压后双击 `start_server.bat`（Windows）或运行 `./start_server.sh`（Linux/macOS）即可启动，**不再需要安装 Python / uv / conda**
 > - 启动时自动探测 `runtime/` 与 `site-packages/`，命中便携运行时后跳过 uv/conda 探测与依赖安装，`/api/config` 中 `bundled` 为 `true`
 > - 便携包只内置 `pdf2zh`，**未内置 `pdf2zh_next`**；需要该引擎时请使用「高级：源码运行（uv/conda）」或 standalone exe
 > - 运行期配置仍在 `server/config/pdf-cache/`；产物命名（`Traned_single_` / `Traned_double_`）与 v1.0.0 一致
@@ -79,8 +82,8 @@
 - 基础问题（例如 Zotero 安装、翻译服务配置等）可向 AI 提问
 - 在github issue区提问
 - 在 [GitHub Issues](https://github.com/BluesilveEmperor/PDFTranslate-Zotero/issues) 提问（请附终端报错与插件设置截图）
-- 📢 **v1.1.0 升级提示**：请同时更新插件和 Server（Server 已改为内置运行时的解压即用便携包）。
-- 📢 **便携包 / 翻译环境**：便携包内置 `pdf2zh` fork 1.9.12 与全部依赖，无需 uv/conda；`pdf2zh_next` 未内置，需要时见[高级：源码运行（uv/conda）](#高级源码运行uvconda)。
+- 📢 **v1.2.0 升级提示**：请同时更新插件和 Server（Server 已改为内置运行时的解压即用便携包；Intel macOS 请下载 `server-macos-x64.zip`）。
+- 📢 **便携包 / 翻译环境**：便携包内置 `pdf2zh` fork 2.0.0 与全部依赖，无需 uv/conda；`pdf2zh_next` 未内置，需要时见[高级：源码运行（uv/conda）](#高级源码运行uvconda)。
 - 📢 **源码运行用户**：仍沿用原有逻辑——`pdf2zh_next < 2.9.0` 时首次启动会询问是否更新（`>=2.9.0` 则跳过）。手动更新可在 `server` 目录运行 `python update_packages.py`，该命令沿用已有 uv/conda，没有现有环境时优先 uv。
 
 # 安装说明
@@ -229,7 +232,7 @@ start_server.bat --host 0.0.0.0
 | 解压耗时 | 约 **85 秒**（视磁盘而定，通常 1~2 分钟） |
 | 首次冷启动到 `/health` 200 | 约 **7.8 秒** |
 | 二次热启动 | 约 **4 秒** |
-| 内置引擎 | `pdf2zh` fork **1.9.12** |
+| 内置引擎 | `pdf2zh` fork **2.0.0** |
 | 未内置 | `pdf2zh_next` |
 
 - **内置运行时**：`runtime/` 是 Python 3.12 运行时，`site-packages/` 是全部依赖。启动脚本设置 `PYTHONPATH` 后直接运行 `server.py`；Server 探测到便携运行时便跳过 uv/conda 探测与依赖安装。
@@ -282,7 +285,7 @@ Windows Defender、360 等可能把包内 `runtime\python.exe` 或 `site-package
 
 ## 第三步：下载并安装插件
 
-最新版本 v1.1.0 [下载链接](https://github.com/BluesilveEmperor/PDFTranslate-Zotero/releases/latest/download/zotero-pdf-2-zh.xpi)
+最新版本 v1.2.0 [下载链接](https://github.com/BluesilveEmperor/PDFTranslate-Zotero/releases/latest/download/zotero-pdf-2-zh.xpi)
 
 1. 安装方式：在zotero中打开“工具-插件”，将xpi文件拖入，进行安装。（若拖入后功能未生效，请重启Zotero）
 2. 如何更新：您可以在zotero中检查更新，或选择自动更新，来获取最新版本插件。
@@ -436,7 +439,7 @@ Windows Defender、360 等可能把包内 `runtime\python.exe` 或 `site-package
 
 - 启动时 Server 会检查 GitHub/Gitee（优先 `--update_source`，失败自动换另一个）。发现新版本会在终端询问，选择 `y` 会下载 Releases 的 `server.zip` 并就地同步；完成后重新启动 `start_server.bat` / `start_server.sh`。
 - 也可以手动更新：下载新 `server.zip`，解压后**覆盖**到原目录。注意保留 `config/pdf-cache/`（配置与缓存）和 `translated/`（翻译产物），其余文件按新包替换。
-- 便携包内的 `pdf2zh`（fork 1.9.12）随 Server 包一起更新，**不需要** `update_packages.py`、uv 或 conda。
+- 便携包内的 `pdf2zh`（fork 2.0.0）随 Server 包一起更新，**不需要** `update_packages.py`、uv 或 conda。
 
 **源码 / uv / conda 模式更新**
 
@@ -598,7 +601,7 @@ python server.py --env_tool=conda --enable_venv=False
 #### 手动安装依赖（如果只需要特定引擎）
 
 ```shell
-# 如果只使用 pdf2zh（与便携包内置的 fork 1.9.12 同源，版本约束见 config/venv.json.example）
+# 如果只使用 pdf2zh（与便携包内置的 fork 2.0.0 同源，版本约束见 config/venv.json.example）
 pip install "pdf2zh @ git+https://gh-proxy.com/https://github.com/BluesilveEmperor/PDFtranslate.git@main" numpy==2.2.0
 
 # 如果只使用 pdf2zh_next（范围与 venv.json.example 一致）
@@ -722,7 +725,7 @@ source ~/.bashrc
 -   A：
     -   **首先点击插件设置页面中"Python Server IP"旁边的"检查连接"按钮**，查看连接状态
     -   若显示连接失败，请按以下步骤排查：
-        -   确保插件是最新版：版本号 1.1.0
+        -   确保插件是最新版：版本号 1.2.0
         -   翻译过程中需要保证 Server 进程开启（便携包：不要关闭启动脚本窗口）
         -   请检查 8890 端口是否被其他程序占用
         -   切换端口重试（可以多次尝试更换新的端口）

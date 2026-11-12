@@ -3,6 +3,7 @@
 #  Zotero PDF2zh Server 便携包构建脚本
 #
 #  产物：server/dist/server.zip
+#      macOS 且 TARGET_ARCH=x86_64 时产物为 server/dist/server-macos-x64.zip
 #      zip 根 = Server 目录内容（无外层 server/ 前缀）
 #      ├── server.py / utils/ / tests/ / config/（仅 *.example）
 #      ├── index.html / favicon.svg / bo.mp3 / notice.json
@@ -19,10 +20,12 @@
 #      UPDATE_DEPS=1 bash ...                   # 仅强制重装依赖
 #      BUILD_PYTHON=/path/to/python3.12 bash ...# 无 uv 时指定构建解释器（必须 3.12）
 #      COMPILE=1 bash ...                       # 额外预编译 .pyc（减小冷启动耗时）
+#      TARGET_ARCH=x86_64 bash ...              # 仅 macOS：交叉构建 Intel（x86_64）便携包
 #
 #  环境变量：
 #      PY_VER         Windows embed 版本，默认 3.12.9
 #      PDF2ZH_SPEC    pdf2zh 安装源，默认 fork 的 gh-proxy git 地址
+#      TARGET_ARCH    仅 macOS 生效；x86_64 表示构建 Intel 包，留空走本机架构
 # ============================================================================
 set -euo pipefail
 
@@ -35,11 +38,19 @@ SITE_DIR="$STAGE_DIR/site-packages"
 ZIP_PATH="$DIST_DIR/server.zip"
 
 PY_VER="${PY_VER:-3.12.9}"
+PY_VER_X64="3.12.7"
+PBS_TAG="20241016"
 PY_EMBED_URL="https://www.python.org/ftp/python/${PY_VER}/python-${PY_VER}-embed-amd64.zip"
 PDF2ZH_SPEC="${PDF2ZH_SPEC:-pdf2zh @ git+https://gh-proxy.com/https://github.com/BluesilveEmperor/PDFtranslate.git@main}"
 GH_PROXY_PREFIX="https://gh-proxy.com/https://github.com/"
 GH_PROXY_UPSTREAM="https://github.com/"
 FORK_NAME="pdf2zh"
+
+TARGET_ARCH="${TARGET_ARCH:-}"
+# 交叉安装目标平台（仅 Intel macOS 构建时非空），供 uv --python-platform 使用。
+DEP_PLATFORM=""
+# 无引号展开即可（平台标识不含空格），避免空数组在 macOS 自带 bash 3.2 + set -u 下报错。
+DEP_PLATFORM_ARGS=""
 
 # 服务端运行必需、必须随 zip 分发的源码 / 静态文件。
 SOURCE_FILES=(
@@ -80,6 +91,20 @@ case "$(uname -s)" in
     Darwin*)              PLATFORM="macos" ;;
     *) die "不支持的平台: $(uname -s)" ;;
 esac
+
+# TARGET_ARCH 只对 macOS 有意义；其他平台保持既有行为，不因误传而改变产物。
+if [ -n "$TARGET_ARCH" ] && [ "$PLATFORM" != "macos" ]; then
+    warn "TARGET_ARCH=$TARGET_ARCH 仅对 macOS 构建生效，当前平台 $PLATFORM 将忽略该值"
+    TARGET_ARCH=""
+fi
+
+if [ "$PLATFORM" = "macos" ] && [ "$TARGET_ARCH" = "x86_64" ]; then
+    DEP_PLATFORM="x86_64-apple-darwin"
+    DEP_PLATFORM_ARGS="--python-platform $DEP_PLATFORM"
+    ZIP_PATH="$DIST_DIR/server-macos-x64.zip"
+elif [ -n "$TARGET_ARCH" ]; then
+    die "不支持的 TARGET_ARCH=$TARGET_ARCH（macOS 便携包目前只支持 x86_64）。"
+fi
 
 case "$PY_VER" in
     3.12.*) : ;;
@@ -124,9 +149,10 @@ find_build_python() {
 }
 
 file_hash() {
-    # 依赖指纹：requirements + fork 地址 + Python 版本。
+    # 依赖指纹：requirements + fork 地址 + Python 版本 + 目标架构。
+    # 纳入 TARGET_ARCH / DEP_PLATFORM，避免 arm64 与 Intel 依赖目录互相复用。
     local text
-    text="$(cat "$SERVER_DIR/requirements.txt"; echo "---"; echo "$PDF2ZH_SPEC"; echo "py=$PY_VER")"
+    text="$(cat "$SERVER_DIR/requirements.txt"; echo "---"; echo "$PDF2ZH_SPEC"; echo "py=$PY_VER"; echo "arch=$TARGET_ARCH"; echo "dep=$DEP_PLATFORM")"
     if command -v sha256sum >/dev/null 2>&1; then
         printf '%s' "$text" | sha256sum | cut -d' ' -f1
     elif command -v shasum >/dev/null 2>&1; then
@@ -200,6 +226,11 @@ prepare_runtime_unix() {
     local uv="$1"
     local py_exe prefix
 
+    if [ "$TARGET_ARCH" = "x86_64" ]; then
+        prepare_runtime_macos_x64 "$uv"
+        return 0
+    fi
+
     if [ "$FORCE" = "1" ]; then
         rm -rf "$RUNTIME_DIR"
     fi
@@ -218,6 +249,63 @@ prepare_runtime_unix() {
     # -L 实体化 uv 管理的符号链接，保证脱离本机后仍可用。
     cp -rL "$prefix"/. "$RUNTIME_DIR"/
     [ -x "$RUNTIME_DIR/bin/python3" ] || die "runtime/bin/python3 缺失"
+}
+
+runtime_is_x86_64() {
+    if ! command -v file >/dev/null 2>&1; then
+        return 0
+    fi
+    file "$RUNTIME_DIR/bin/python3" 2>/dev/null | grep -q 'x86_64'
+}
+
+prepare_runtime_macos_x64() {
+    local uv="$1"
+    local tag="cpython-${PY_VER_X64}-macos-x86_64-none"
+    local uv_dir="${UV_PYTHON_INSTALL_DIR:-$HOME/.local/share/uv/python}"
+    local prefix="$uv_dir/$tag/install"
+    local tarball="$CACHE_DIR/cpython-${PY_VER_X64}+${PBS_TAG}-x86_64-apple-darwin-install_only.tar.gz"
+    local url="https://github.com/astral-sh/python-build-standalone/releases/download/${PBS_TAG}/cpython-${PY_VER_X64}+${PBS_TAG}-x86_64-apple-darwin-install_only.tar.gz"
+
+    if [ "$FORCE" = "1" ]; then
+        rm -rf "$RUNTIME_DIR"
+    fi
+    if [ -x "$RUNTIME_DIR/bin/python3" ]; then
+        if runtime_is_x86_64; then
+            log "runtime" "复用已复制的 Intel（x86_64）Python 便携运行时: $RUNTIME_DIR"
+            return 0
+        fi
+        # 上一轮可能是 arm64 产物，不能复用。
+        log "runtime" "现有 runtime 不是 x86_64，重新准备 Intel 便携运行时"
+        rm -rf "$RUNTIME_DIR"
+    fi
+
+    mkdir -p "$RUNTIME_DIR"
+    log "runtime" "准备 Intel macOS（x86_64）Python $PY_VER_X64 运行时"
+    if "$uv" python install "$tag" >/dev/null 2>&1; then
+        if [ ! -d "$prefix" ]; then
+            prefix="$uv_dir/$tag"
+        fi
+        [ -d "$prefix" ] || die "uv 已安装 $tag，但找不到运行时目录: $uv_dir/$tag"
+        log "runtime" "从 uv 受管理目录复制: $prefix"
+        # -L 实体化 uv 管理的符号链接，保证脱离本机后仍可用。
+        cp -rL "$prefix"/. "$RUNTIME_DIR"/
+    else
+        warn "uv 安装 $tag 失败，回退下载 python-build-standalone"
+        mkdir -p "$CACHE_DIR"
+        if [ ! -s "$tarball" ]; then
+            curl -L --fail --retry 3 --retry-delay 3 \
+                -o "$tarball.tmp" "$url" \
+                || die "下载 Intel macOS（x86_64）运行时失败: $url（不会回落到 arm64 产物）"
+            mv "$tarball.tmp" "$tarball"
+        fi
+        # install_only 归档内层是 python/ 目录，剥离后才是 runtime 根。
+        tar -xzf "$tarball" -C "$RUNTIME_DIR" --strip-components=1 \
+            || die "解压 Intel macOS（x86_64）运行时失败: $tarball"
+    fi
+
+    [ -x "$RUNTIME_DIR/bin/python3" ] || die "runtime/bin/python3 缺失（Intel macOS x86_64 运行时）"
+    runtime_is_x86_64 \
+        || die "runtime/bin/python3 不是 x86_64 架构，已终止以避免产出错误的 Intel 包: $RUNTIME_DIR"
 }
 
 # ---------------------------------------------------------------------------
@@ -241,6 +329,7 @@ install_deps_uv() {
         --python 3.12 \
         --target "$SITE_DIR" \
         --link-mode copy \
+        $DEP_PLATFORM_ARGS \
         -r "$SERVER_DIR/requirements.txt" \
         "$PDF2ZH_SPEC"
 }
@@ -258,11 +347,18 @@ install_deps_pip() {
     2) BUILD_PYTHON=/path/to/python3.12 bash server/build_portable.sh"
     fi
 
+    # pip 没有 --python-platform，交叉构建 Intel 包时用等价的 --platform。
+    local pip_platform_args=""
+    if [ -n "$DEP_PLATFORM" ]; then
+        pip_platform_args="--platform $DEP_PLATFORM --only-binary=:all:"
+    fi
+
     log "deps" "uv 不可用，回退 python -m pip install → site-packages（构建机 Python $build_version）"
     with_git_proxy "$build_py" -m pip install \
         --disable-pip-version-check \
         --upgrade \
         --target "$SITE_DIR" \
+        $pip_platform_args \
         -r "$SERVER_DIR/requirements.txt" \
         "$PDF2ZH_SPEC"
 }
@@ -330,6 +426,7 @@ prepare_site_packages_unix() {
             --python 3.12 \
             --target "$SITE_DIR" \
             --link-mode copy \
+            $DEP_PLATFORM_ARGS \
             -r "$SERVER_DIR/requirements.txt" \
             "$PDF2ZH_SPEC"
         file_hash > "$SITE_DIR/.portable-deps.sha256"
@@ -542,6 +639,9 @@ report() {
         echo "      mkdir -p /tmp/pdf2zh-portable && cd /tmp/pdf2zh-portable"
         echo "      unzip -q '$ZIP_PATH' && ./start_server.sh --host 127.0.0.1 --port 8899"
         echo "      curl http://127.0.0.1:8899/health"
+        if [ "$TARGET_ARCH" = "x86_64" ]; then
+            echo "    注: 该产物仅适用于 Intel macOS（x86_64），在 Apple Silicon 上需 Rosetta 2。"
+        fi
     fi
 }
 
@@ -549,7 +649,11 @@ report() {
 # main
 # ---------------------------------------------------------------------------
 BUILD_STARTED="$(now)"
-log "平台" "$PLATFORM"
+if [ -n "$TARGET_ARCH" ]; then
+    log "平台" "$PLATFORM（TARGET_ARCH=$TARGET_ARCH）"
+else
+    log "平台" "$PLATFORM"
+fi
 mkdir -p "$DIST_DIR"
 
 UV="$(find_uv || true)"

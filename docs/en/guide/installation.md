@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide applies to Zotero PDF2zh **v1.1.0**. The Server is now an extract-and-run portable package: `server.zip` bundles a Python 3.12 runtime and all dependencies, so **normal users do not need Python, uv or conda**.
+This guide applies to Zotero PDF2zh **v1.2.0**. The Server is now an extract-and-run portable package: `server.zip` bundles a Python 3.12 runtime and all dependencies, so **normal users do not need Python, uv or conda**.
 
 ::: tip Before you begin
 - **Zotero 7 / 8 / 9 / 10**
@@ -119,7 +119,7 @@ The Server listens on `127.0.0.1` by default. Only expose it when other devices 
 | Extraction time | about **85 seconds** (typically 1–2 minutes) |
 | First cold start to `/health` 200 | about **7.8 seconds** |
 | Second warm start | about **4 seconds** |
-| Bundled engine | `pdf2zh` fork **1.9.12** |
+| Bundled engine | `pdf2zh` fork **2.0.0** |
 | Not bundled | `pdf2zh_next` |
 
 - **The first real translation still needs the network**: babeldoc model/font assets are not pre-seeded; the first translation downloads them and may stall on a restricted network. Later translations reuse the local cache.
@@ -164,7 +164,7 @@ The first real translation still downloads babeldoc model/font assets; later tra
 
 ## 6. Install the Zotero plugin
 
-Latest XPI (v1.1.0):
+Latest XPI (v1.2.0):
 
 ```text
 https://github.com/BluesilveEmperor/PDFTranslate-Zotero/releases/latest/download/zotero-pdf-2-zh.xpi

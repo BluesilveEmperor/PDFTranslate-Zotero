@@ -239,8 +239,8 @@ def move_products_to_output(products, stem):
         moved.append(target)
     return moved
 
-__version__ = "1.1.0"
-update_log = "首发 1.0.0：配置迁至 config/pdf-cache；产物统一 Traned_single_/Traned_double_ 命名，中间产物进 translated/.staging；pdf2zh 依赖改走 fork git 源（gh-proxy 加速）。请同时更新插件和 Server。"
+__version__ = "1.2.0"
+update_log = "v1.2.0：适配上游 pdf2zh v2.0.0（终端 rich 彩色进度条、Intel macOS（x86_64）便携包）。请同时更新插件和 Server。"
 
 ############# config file #########
 pdf2zh      = 'pdf2zh'
@@ -1294,12 +1294,13 @@ class PDFTranslator:
         cmd = [
             pdf2zh,
             input_path,
-            '--t', str(config.thread_num),
+            '--thread', str(config.thread_num),
             '--output', str(output_dir),
             '--service', str(config.service),
             '--lang-in', str(config.sourceLang),
             '--lang-out', str(config.targetLang),
             '--config', str(config_path[pdf2zh]), # 使用默认的config path路径
+            '--progress-style', 'rich',
         ]
 
         if config.skip_last_pages and config.skip_last_pages > 0:

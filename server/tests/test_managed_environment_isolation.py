@@ -38,6 +38,12 @@ class ManagedEnvironmentIsolationTest(unittest.TestCase):
         self.assertIn("PYTHONPATH", source, "the caller's mapping must not be mutated")
 
     def test_health_probe_ignores_ambient_pythonpath(self):
+        # 该用例的前提是当前解释器本身装有 pydantic；宿主缺失时健康探针会
+        # 因依赖不存在而失败，与 PYTHONPATH 污染无关，不能据此判定回归。
+        healthy, reason = managed_runtime_health("pdf2zh_next", Path(sys.executable))
+        if not healthy and "ModuleNotFoundError" in reason:
+            self.skipTest(f"当前解释器缺少健康探针所需依赖：{reason}")
+
         with tempfile.TemporaryDirectory() as temp_dir:
             fake = Path(temp_dir)
             (fake / "pydantic.py").write_text("raise RuntimeError('polluted')\n")
@@ -165,8 +171,8 @@ class ManagedEnvironmentIsolationTest(unittest.TestCase):
     def test_system_mode_keeps_ambient_python_settings(self):
         captured = {}
 
-        def capture(_cmd, env, _task_id, _cols, _rows):
-            captured.update(env)
+        def capture(*call_args):
+            captured.update(call_args[1])
 
         args = SimpleNamespace(enable_venv=False)
         with (
@@ -180,7 +186,10 @@ class ManagedEnvironmentIsolationTest(unittest.TestCase):
                 "prepare_deepseek_runtime_command",
                 side_effect=lambda cmd, env: cmd,
             ),
+            # Windows 走 _execute_with_inherit，类 Unix 走 _execute_with_pty；
+            # 两个分支都替换掉，确保断言在任一平台都覆盖真实传入的环境。
             patch.object(execute, "_execute_with_pty", side_effect=capture),
+            patch.object(execute, "_execute_with_inherit", side_effect=capture),
         ):
             execute.execute_with_progress(["python", "-V"], None, args, None)
 
@@ -200,8 +209,8 @@ class ManagedEnvironmentIsolationTest(unittest.TestCase):
                     "PATH": "managed-bin",
                 }
 
-        def capture(_cmd, env, _task_id, _cols, _rows):
-            captured.update(env)
+        def capture(*call_args):
+            captured.update(call_args[1])
 
         args = SimpleNamespace(enable_venv=True)
         with (
@@ -211,6 +220,7 @@ class ManagedEnvironmentIsolationTest(unittest.TestCase):
                 side_effect=lambda cmd, env: cmd,
             ),
             patch.object(execute, "_execute_with_pty", side_effect=capture),
+            patch.object(execute, "_execute_with_inherit", side_effect=capture),
         ):
             execute.execute_with_progress(
                 ["pdf2zh_next", "paper.pdf"], None, args, Manager()

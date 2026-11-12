@@ -35,6 +35,9 @@ ANSI_ESCAPE = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
 # 特征：匹配竖线 "|" 加上 " 3/17 [" 这样的格式
 PDF2ZH_TQDM_RE = re.compile(r"\|\s*(\d+)/(\d+)\s+\[")
 
+# pdf2zh 2.x 使用 rich 彩色进度条：阶段名 + 实心条 + "当前/总数"
+RICH_PROGRESS_RE = re.compile(r"(?m)^\s*([^━\r\n]{1,60}?)\s+━+\s+(\d+)/(\d+)\s")
+
 WINDOWS_MONITOR_INTERVAL = 0.05
 WINDOWS_CONSOLE_SCAN_ROWS = 220
 # Floor only. Never report a fake wide terminal (e.g. 200): rich/tqdm will
@@ -210,6 +213,19 @@ def _parse_progress(text, task_id):
     
     # 【新增调试日志】把每次 PTY 读取到的"大块头"文本极其原貌（包括 \r 和 \n）打出来
     # _debug_progress_log("MAC_PTY_READ", raw_chunk=repr(clean))
+
+    # rich 进度条（pdf2zh 2.x）优先级最高：同块取最后一条，阶段切换不做累积
+    rich_matches = RICH_PROGRESS_RE.findall(clean)
+    if rich_matches:
+        stage, curr, total = rich_matches[-1]
+        curr, total = int(curr), int(total)
+        if total > 0:
+            task_manager.update_task(task_id, {
+                "progress": 99 if curr >= total else int(curr / total * 100),
+                "status": "running",
+                "message": stage.strip(),
+            })
+        return
 
     # 以下完全恢复成你的原始代码！
     # Main translation progress (preferred)

@@ -1,6 +1,6 @@
 # 安装指南
 
-本文档适用于 Zotero PDF2zh **v1.1.0**。Server 已改为「解压即用」便携包：`server.zip` 内置 Python 3.12 运行时与全部依赖，**普通用户不需要安装 Python、uv 或 conda**。
+本文档适用于 Zotero PDF2zh **v1.2.0**。Server 已改为「解压即用」便携包：`server.zip` 内置 Python 3.12 运行时与全部依赖，**普通用户不需要安装 Python、uv 或 conda**。
 
 ::: tip 开始之前
 - **Zotero 7 / 8 / 9 / 10**
@@ -119,7 +119,7 @@ Server 默认只监听 `127.0.0.1`。只有确定需要让其他设备访问时�
 | 解压耗时 | 约 **85 秒**（通常 1~2 分钟） |
 | 首次冷启动到 `/health` 200 | 约 **7.8 秒** |
 | 二次热启动 | 约 **4 秒** |
-| 内置引擎 | `pdf2zh` fork **1.9.12** |
+| 内置引擎 | `pdf2zh` fork **2.0.0** |
 | 未内置 | `pdf2zh_next` |
 
 - **首次真实翻译仍需联网**：便携包未预置 babeldoc 的模型/字体资产，第一次翻译会联网下载；网络受限时可能卡在下载阶段，资产缓存后可复用。
@@ -164,7 +164,7 @@ start_server.bat --port 9999
 
 ## 6. 安装 Zotero 插件
 
-最新 XPI（v1.1.0）：
+最新 XPI（v1.2.0）：
 
 ```text
 https://github.com/BluesilveEmperor/PDFTranslate-Zotero/releases/latest/download/zotero-pdf-2-zh.xpi
